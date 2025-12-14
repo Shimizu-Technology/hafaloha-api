@@ -29,6 +29,13 @@ Rails.application.routes.draw do
         # Imports
         resources :imports, only: [:index, :show, :create]
         
+        # Homepage Sections (for configurable homepage)
+        resources :homepage_sections, except: [:new, :edit] do
+          collection do
+            post :reorder
+          end
+        end
+        
         # File uploads
         resources :uploads, only: [:create, :destroy]
         
@@ -68,6 +75,7 @@ Rails.application.routes.draw do
       # Public routes (no authentication required)
       resources :products, only: [:index, :show]
       resources :collections, only: [:index, :show]
+      resources :homepage_sections, only: [:index]
       
       # Cart routes (authentication optional - supports guest carts)
       get 'cart', to: 'cart#show'

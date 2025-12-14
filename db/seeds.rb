@@ -83,9 +83,65 @@ puts "   • Send Customer Emails: #{settings.send_customer_emails}"
 puts ""
 
 # ------------------------------------------------------------------------------
-# 3) INSTRUCTIONS
+# 3) HOMEPAGE SECTIONS
 # ------------------------------------------------------------------------------
-puts "3️⃣  Next steps:"
+puts "3️⃣  Setting up homepage sections..."
+
+if HomepageSection.count == 0
+  # Hero Section
+  HomepageSection.create!(
+    section_type: "hero",
+    position: 0,
+    active: true,
+    title: "Håfa Adai! 🌺",
+    subtitle: "Chamorro pride. Island style. Premium quality merchandise.",
+    button_text: "Shop Now",
+    button_link: "/products",
+    background_image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80",
+    settings: { "overlay_opacity" => 0.4, "text_alignment" => "center" }
+  )
+
+  # Category Cards
+  [
+    {
+      title: "Shop Women's",
+      subtitle: "Vibrant styles for island living",
+      button_text: "Shop Now",
+      button_link: "/products?collection=womens",
+      image_url: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&q=80",
+      position: 0
+    },
+    {
+      title: "Shop Men's",
+      subtitle: "Bold designs with island pride",
+      button_text: "Shop Now",
+      button_link: "/products?collection=mens",
+      image_url: "https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800&q=80",
+      position: 1
+    }
+  ].each do |card|
+    HomepageSection.create!(
+      section_type: "category_card",
+      position: card[:position],
+      active: true,
+      title: card[:title],
+      subtitle: card[:subtitle],
+      button_text: card[:button_text],
+      button_link: card[:button_link],
+      image_url: card[:image_url]
+    )
+  end
+
+  puts "   ✓ Created #{HomepageSection.count} homepage sections"
+else
+  puts "   ⏭️  Homepage sections already exist (#{HomepageSection.count} sections)"
+end
+puts ""
+
+# ------------------------------------------------------------------------------
+# 4) INSTRUCTIONS
+# ------------------------------------------------------------------------------
+puts "4️⃣  Next steps:"
 puts ""
 puts "   💡 To import products, use the Admin dashboard:"
 puts "      1. Sign in as admin (#{admin.email})"
@@ -108,6 +164,7 @@ puts ""
 puts "📊 Summary:"
 puts "   • Admin User: #{admin.email}"
 puts "   • Site Settings: Configured"
+puts "   • Homepage Sections: #{HomepageSection.count}"
 puts "   • Collections: #{Collection.count}"
 puts "   • Products: #{Product.count}"
 puts "   • Variants: #{ProductVariant.count}"

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_14_211923) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -105,6 +105,24 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_211923) do
     t.string "status"
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_fundraisers_on_slug", unique: true
+  end
+
+  create_table "homepage_sections", force: :cascade do |t|
+    t.boolean "active", default: true
+    t.string "background_image_url"
+    t.string "button_link"
+    t.string "button_text"
+    t.datetime "created_at", null: false
+    t.string "image_url"
+    t.integer "position", default: 0
+    t.string "section_type", null: false
+    t.jsonb "settings", default: {}
+    t.text "subtitle"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_homepage_sections_on_active"
+    t.index ["position"], name: "index_homepage_sections_on_position"
+    t.index ["section_type"], name: "index_homepage_sections_on_section_type"
   end
 
   create_table "imports", force: :cascade do |t|
