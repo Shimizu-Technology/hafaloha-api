@@ -1,0 +1,74 @@
+# frozen_string_literal: true
+
+module Api
+  module V1
+    class ShippingController < ApplicationController
+      include Authenticatable
+      skip_before_action :authenticate_request # Allow unauthenticated users to get shipping rates
+      before_action :authenticate_optional
+
+      # POST /api/v1/shipping/rates
+      # Calculate shipping rates for cart items
+      def calculate_rates
+        cart_items = get_cart_items
+        
+        if cart_items.empty?
+          return render json: { error: 'Cart is empty' }, status: :unprocessable_entity
+        end
+
+        destination = shipping_address_params
+        rates = ShippingService.calculate_rates(cart_items, destination)
+
+        render json: {
+          rates: rates,
+          total_weight_oz: cart_items.sum { |item| (item.product_variant.weight_oz || 0) * item.quantity }
+        }
+      rescue ShippingService::ShippingError => e
+        render json: { error: e.message }, status: :unprocessable_entity
+      rescue StandardError => e
+        Rails.logger.error "Shipping rates error: #{e.message}"
+        render json: { error: 'Failed to calculate shipping rates' }, status: :internal_server_error
+      end
+
+      # POST /api/v1/shipping/validate_address
+      # Validate a shipping address
+      def validate_address
+        address = shipping_address_params
+        validated = ShippingService.validate_address(address)
+        
+        render json: { address: validated }
+      rescue ShippingService::ShippingError => e
+        render json: { error: e.message }, status: :unprocessable_entity
+      rescue StandardError => e
+        Rails.logger.error "Address validation error: #{e.message}"
+        render json: { error: 'Failed to validate address' }, status: :internal_server_error
+      end
+
+      private
+
+      def get_cart_items
+        if current_user
+          current_user.cart_items.includes(product_variant: { product: :product_images })
+        else
+          session_id = request.headers['X-Session-ID'] || cookies[:session_id]
+          return [] if session_id.blank?
+          CartItem.where(session_id: session_id).includes(product_variant: { product: :product_images })
+        end
+      end
+
+      def shipping_address_params
+        params.require(:address).permit(
+          :name,
+          :street1,
+          :street2,
+          :city,
+          :state,
+          :zip,
+          :country,
+          :phone
+        ).to_h.symbolize_keys
+      end
+    end
+  end
+end
+
