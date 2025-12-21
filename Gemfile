@@ -65,7 +65,7 @@ end
 
 group :development do
   # Environment variables (use 2.8.x for Rails 8 compatibility)
-  gem "dotenv-rails", "~> 2.8"
+  gem "dotenv-rails", "~> 3.2"
 end
 
 gem "jwt", "~> 2.5"
