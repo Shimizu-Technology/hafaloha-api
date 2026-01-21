@@ -4,10 +4,18 @@ class Order < ApplicationRecord
   belongs_to :participant, optional: true
   has_many :order_items, dependent: :destroy
 
+  # Valid statuses by order type:
+  # Retail:    pending → processing → shipped → delivered (or cancelled)
+  # Acai:      pending → confirmed → ready → picked_up (or cancelled)
+  # Wholesale: pending → confirmed → ready → picked_up (or cancelled)
+  VALID_STATUSES = %w[pending confirmed processing ready shipped picked_up delivered cancelled].freeze
+  RETAIL_STATUSES = %w[pending processing shipped delivered cancelled].freeze
+  PICKUP_STATUSES = %w[pending confirmed ready picked_up cancelled].freeze
+
   # Validations
   validates :order_number, presence: true, uniqueness: true
   validates :order_type, inclusion: { in: %w[retail wholesale acai] }
-  validates :status, inclusion: { in: %w[pending processing shipped delivered cancelled] }
+  validates :status, inclusion: { in: VALID_STATUSES }
   validates :payment_status, inclusion: { in: %w[pending paid failed refunded] }
   validates :total_cents, numericality: { greater_than_or_equal_to: 0 }
 
@@ -16,11 +24,16 @@ class Order < ApplicationRecord
   scope :wholesale, -> { where(order_type: 'wholesale') }
   scope :acai, -> { where(order_type: 'acai') }
   scope :pending, -> { where(status: 'pending') }
+  scope :confirmed, -> { where(status: 'confirmed') }
   scope :processing, -> { where(status: 'processing') }
+  scope :ready, -> { where(status: 'ready') }
   scope :shipped, -> { where(status: 'shipped') }
+  scope :picked_up, -> { where(status: 'picked_up') }
   scope :delivered, -> { where(status: 'delivered') }
+  scope :cancelled, -> { where(status: 'cancelled') }
   scope :paid, -> { where(payment_status: 'paid') }
   scope :recent, -> { order(created_at: :desc) }
+  scope :active, -> { where.not(status: 'cancelled') }
 
   # Callbacks
   before_validation :generate_order_number, if: -> { order_number.blank? }
@@ -69,11 +82,15 @@ class Order < ApplicationRecord
 
   # Status helpers
   def can_cancel?
-    %w[pending processing].include?(status)
+    %w[pending confirmed processing ready].include?(status)
   end
 
   def can_ship?
     status == 'processing' && payment_status == 'paid'
+  end
+
+  def can_mark_ready?
+    (acai? || wholesale?) && status == 'confirmed' && payment_status == 'paid'
   end
 
   def is_paid?
@@ -81,7 +98,30 @@ class Order < ApplicationRecord
   end
 
   def is_complete?
-    status == 'delivered'
+    status.in?(%w[delivered picked_up])
+  end
+  
+  def is_pickup_order?
+    acai? || wholesale?
+  end
+  
+  # Get valid next statuses based on order type and current status
+  def next_status_options
+    if retail?
+      case status
+      when 'pending' then ['processing', 'cancelled']
+      when 'processing' then ['shipped', 'cancelled']
+      when 'shipped' then ['delivered']
+      else []
+      end
+    else
+      case status
+      when 'pending' then ['confirmed', 'cancelled']
+      when 'confirmed' then ['ready', 'cancelled']
+      when 'ready' then ['picked_up']
+      else []
+      end
+    end
   end
 
   # Type helpers
@@ -135,11 +175,21 @@ class Order < ApplicationRecord
   private
 
   def generate_order_number
-    # Format: HAF-YYYYMMDD-XXXX (e.g., HAF-20251210-0001)
-    date_str = Time.current.strftime('%Y%m%d')
+    # Format: HAF-{TYPE}-YYYYMMDD-XXXX
+    # - Retail:    HAF-R-20251210-0001
+    # - Acai:      HAF-A-20251210-0001
+    # - Wholesale: HAF-W-20251210-0001
+    type_prefix = case order_type
+                  when 'acai' then 'A'
+                  when 'wholesale' then 'W'
+                  else 'R' # retail is default
+                  end
     
-    # Find the last order number for today
-    last_order = Order.where('order_number LIKE ?', "HAF-#{date_str}-%").order(:order_number).last
+    date_str = Time.current.strftime('%Y%m%d')
+    prefix = "HAF-#{type_prefix}-#{date_str}"
+    
+    # Find the last order number with this prefix for today
+    last_order = Order.where('order_number LIKE ?', "#{prefix}-%").order(:order_number).last
     
     if last_order
       # Extract the sequence number and increment
@@ -148,6 +198,6 @@ class Order < ApplicationRecord
       sequence = 1
     end
     
-    self.order_number = "HAF-#{date_str}-#{sequence.to_s.rjust(4, '0')}"
+    self.order_number = "#{prefix}-#{sequence.to_s.rjust(4, '0')}"
   end
 end

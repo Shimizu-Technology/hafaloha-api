@@ -10,17 +10,29 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_21_073530) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "acai_blocked_slots", force: :cascade do |t|
     t.date "blocked_date"
     t.datetime "created_at", null: false
-    t.time "end_time"
+    t.string "end_time"
     t.string "reason"
-    t.time "start_time"
+    t.string "start_time"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "acai_crust_options", force: :cascade do |t|
+    t.boolean "available", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.integer "price_cents", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["available"], name: "index_acai_crust_options_on_available"
+    t.index ["position"], name: "index_acai_crust_options_on_position"
   end
 
   create_table "acai_pickup_windows", force: :cascade do |t|
@@ -28,8 +40,38 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
     t.integer "capacity"
     t.datetime "created_at", null: false
     t.integer "day_of_week"
-    t.time "end_time"
-    t.time "start_time"
+    t.string "end_time"
+    t.string "start_time"
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "acai_placard_options", force: :cascade do |t|
+    t.boolean "available", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.integer "price_cents", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["available"], name: "index_acai_placard_options_on_available"
+    t.index ["position"], name: "index_acai_placard_options_on_position"
+  end
+
+  create_table "acai_settings", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.integer "advance_hours", default: 24, null: false
+    t.integer "base_price_cents", default: 4500, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "image_url"
+    t.integer "max_per_slot", default: 5, null: false
+    t.string "name", default: "Heart-Shaped Açaí Cake", null: false
+    t.text "pickup_instructions"
+    t.string "pickup_location", default: "955 Pale San Vitores Rd, Tumon, Blue Lagoon Plaza"
+    t.string "pickup_phone", default: "671-989-3444"
+    t.boolean "placard_enabled", default: true, null: false
+    t.integer "placard_price_cents", default: 0, null: false
+    t.text "toppings_info"
     t.datetime "updated_at", null: false
   end
 
@@ -149,10 +191,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
   create_table "order_items", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "order_id", null: false
-    t.bigint "product_id", null: false
+    t.bigint "product_id"
     t.string "product_name"
     t.string "product_sku"
-    t.bigint "product_variant_id", null: false
+    t.bigint "product_variant_id"
     t.integer "quantity"
     t.integer "total_price_cents"
     t.integer "unit_price_cents"
@@ -167,7 +209,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
     t.string "acai_crust_type"
     t.boolean "acai_include_placard"
     t.date "acai_pickup_date"
-    t.time "acai_pickup_time"
+    t.string "acai_pickup_time"
     t.string "acai_placard_text"
     t.text "admin_notes"
     t.datetime "created_at", null: false
@@ -197,10 +239,13 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
     t.string "tracking_number"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["created_at"], name: "index_orders_on_created_at"
+    t.index ["customer_email"], name: "index_orders_on_customer_email"
     t.index ["fundraiser_id"], name: "index_orders_on_fundraiser_id"
     t.index ["order_number"], name: "index_orders_on_order_number", unique: true
     t.index ["order_type"], name: "index_orders_on_order_type"
     t.index ["participant_id"], name: "index_orders_on_participant_id"
+    t.index ["payment_status"], name: "index_orders_on_payment_status"
     t.index ["status"], name: "index_orders_on_status"
     t.index ["user_id"], name: "index_orders_on_user_id"
   end
@@ -311,7 +356,10 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
     t.text "order_notification_emails", default: [], array: true
     t.string "payment_processor", default: "stripe", null: false
     t.boolean "payment_test_mode", default: true, null: false
+    t.boolean "send_acai_emails", default: false, null: false
     t.boolean "send_customer_emails", default: false, null: false
+    t.boolean "send_retail_emails", default: false, null: false
+    t.boolean "send_wholesale_emails", default: false, null: false
     t.jsonb "shipping_origin_address", default: {}
     t.string "store_email"
     t.string "store_name", default: "Hafaloha"
@@ -328,6 +376,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_14_232219) do
     t.string "role"
     t.datetime "updated_at", null: false
     t.index ["clerk_id"], name: "index_users_on_clerk_id", unique: true
+    t.index ["email"], name: "index_users_on_email"
     t.index ["role"], name: "index_users_on_role"
   end
 

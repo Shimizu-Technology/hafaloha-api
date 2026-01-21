@@ -1,12 +1,13 @@
 class OrderItem < ApplicationRecord
   belongs_to :order
-  belongs_to :product
+  belongs_to :product, optional: true  # Optional for Acai orders
   belongs_to :product_variant, optional: true
 
   # Validations
   validates :quantity, numericality: { greater_than: 0 }
   validates :unit_price_cents, numericality: { greater_than_or_equal_to: 0 }
   validates :total_price_cents, numericality: { greater_than_or_equal_to: 0 }
+  validates :product_name, presence: true  # Required since product is optional
 
   # Callbacks
   before_validation :set_defaults, if: :new_record?
@@ -33,10 +34,14 @@ class OrderItem < ApplicationRecord
   private
 
   def set_defaults
-    self.product_name ||= product.name
-    self.variant_name ||= product_variant&.display_name
-    self.product_sku ||= product_variant&.sku || product.sku_prefix
-    self.unit_price_cents ||= product_variant&.price_cents || product.base_price_cents || 0
+    # Only set from product if product exists (not for Acai orders)
+    if product
+      self.product_name ||= product.name
+      self.variant_name ||= product_variant&.display_name
+      self.product_sku ||= product_variant&.sku || product.sku_prefix
+      self.unit_price_cents ||= product_variant&.price_cents || product.base_price_cents || 0
+    end
+    # For Acai orders, these should be set explicitly in the controller
   end
 
   def calculate_total

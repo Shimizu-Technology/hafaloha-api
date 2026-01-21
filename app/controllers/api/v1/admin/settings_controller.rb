@@ -12,16 +12,7 @@ module Api
           settings = SiteSetting.instance
           
           render json: {
-            settings: {
-              payment_test_mode: settings.payment_test_mode,
-              payment_processor: settings.payment_processor,
-              send_customer_emails: settings.send_customer_emails,
-              store_name: settings.store_name,
-              store_email: settings.store_email,
-              store_phone: settings.store_phone,
-              order_notification_emails: settings.order_notification_emails,
-              shipping_origin_address: settings.shipping_origin_address
-            }
+            settings: settings_json(settings)
           }
         end
 
@@ -33,16 +24,7 @@ module Api
             render json: {
               success: true,
               message: 'Settings updated successfully',
-              settings: {
-                payment_test_mode: settings.payment_test_mode,
-                payment_processor: settings.payment_processor,
-                send_customer_emails: settings.send_customer_emails,
-                store_name: settings.store_name,
-                store_email: settings.store_email,
-                store_phone: settings.store_phone,
-                order_notification_emails: settings.order_notification_emails,
-                shipping_origin_address: settings.shipping_origin_address
-              }
+              settings: settings_json(settings)
             }
           else
             render json: {
@@ -54,11 +36,32 @@ module Api
 
         private
 
+        def settings_json(settings)
+          {
+            payment_test_mode: settings.payment_test_mode,
+            payment_processor: settings.payment_processor,
+            # Per-order-type email settings
+            send_retail_emails: settings.send_retail_emails,
+            send_acai_emails: settings.send_acai_emails,
+            send_wholesale_emails: settings.send_wholesale_emails,
+            # Legacy field (kept for backwards compatibility)
+            send_customer_emails: settings.send_customer_emails,
+            store_name: settings.store_name,
+            store_email: settings.store_email,
+            store_phone: settings.store_phone,
+            order_notification_emails: settings.order_notification_emails,
+            shipping_origin_address: settings.shipping_origin_address
+          }
+        end
+
         def settings_params
           params.require(:settings).permit(
             :payment_test_mode,
             :payment_processor,
             :send_customer_emails,
+            :send_retail_emails,
+            :send_acai_emails,
+            :send_wholesale_emails,
             :store_name,
             :store_email,
             :store_phone,

@@ -75,9 +75,16 @@ module Api
       # Update order (status, tracking, notes)
       def update
         if @order.update(order_update_params)
-          # Send email notification if status changed to 'shipped' and tracking number is present
-          if @order.saved_change_to_status? && @order.status == 'shipped' && @order.tracking_number.present?
-            SendOrderShippedEmailJob.perform_later(@order.id)
+          # Send email notifications based on status changes
+          if @order.saved_change_to_status?
+            case @order.status
+            when 'shipped'
+              # Send shipping notification with tracking
+              SendOrderShippedEmailJob.perform_later(@order.id) if @order.tracking_number.present?
+            when 'ready'
+              # Send ready for pickup notification
+              SendOrderReadyEmailJob.perform_later(@order.id)
+            end
           end
           
           render json: { 
@@ -86,6 +93,25 @@ module Api
           }
         else
           render json: { error: @order.errors.full_messages.join(', ') }, status: :unprocessable_entity
+        end
+      end
+
+      # POST /api/v1/admin/orders/:id/notify
+      # Resend notification email to customer
+      def notify
+        case @order.status
+        when 'shipped'
+          if @order.tracking_number.present?
+            SendOrderShippedEmailJob.perform_later(@order.id)
+            render json: { message: 'Shipping notification sent to customer' }
+          else
+            render json: { error: 'Order has no tracking number' }, status: :unprocessable_entity
+          end
+        when 'ready'
+          SendOrderReadyEmailJob.perform_later(@order.id)
+          render json: { message: 'Ready for pickup notification sent to customer' }
+        else
+          render json: { error: "Cannot send notification for orders with status '#{@order.status}'" }, status: :unprocessable_entity
         end
       end
 
@@ -141,11 +167,11 @@ module Api
           clear_cart(cart_items)
           
           # Send confirmation emails (asynchronously via Sidekiq)
-          # Only send customer emails if enabled in settings
-          if settings.send_customer_emails
+          # Check per-order-type email settings
+          if settings.send_emails_for?(order.order_type)
             SendOrderConfirmationEmailJob.perform_later(order.id)
           else
-            Rails.logger.info "📧 Customer email disabled - skipping confirmation email for Order ##{order.order_number}"
+            Rails.logger.info "📧 Customer email disabled for #{order.order_type} orders - skipping confirmation email for Order ##{order.order_number}"
           end
           
           # Always send admin notifications
@@ -311,7 +337,7 @@ module Api
       end
 
       def order_json(order)
-        {
+        json = {
           id: order.id,
           order_number: order.order_number,
           status: order.status,
@@ -345,10 +371,26 @@ module Api
             }
           end
         }
+        
+        # Add acai-specific fields for acai orders
+        if order.order_type == 'acai'
+          settings = AcaiSetting.instance
+          json.merge!(
+            acai_pickup_date: order.acai_pickup_date&.to_s,
+            acai_pickup_time: order.acai_pickup_time, # Now stored as string
+            acai_crust_type: order.acai_crust_type,
+            acai_include_placard: order.acai_include_placard,
+            acai_placard_text: order.acai_placard_text,
+            pickup_location: settings.pickup_location,
+            pickup_phone: settings.pickup_phone
+          )
+        end
+        
+        json
       end
 
       def detailed_order_json(order)
-        {
+        json = {
           id: order.id,
           order_number: order.order_number,
           status: order.status,
@@ -386,6 +428,22 @@ module Api
             }
           end
         }
+        
+        # Add acai-specific fields for acai orders
+        if order.order_type == 'acai'
+          acai_settings = AcaiSetting.instance
+          json.merge!(
+            acai_pickup_date: order.acai_pickup_date&.to_s,
+            acai_pickup_time: order.acai_pickup_time, # Now stored as string
+            acai_crust_type: order.acai_crust_type,
+            acai_include_placard: order.acai_include_placard,
+            acai_placard_text: order.acai_placard_text,
+            pickup_location: acai_settings.pickup_location,
+            pickup_phone: acai_settings.pickup_phone
+          )
+        end
+        
+        json
       end
 
       def order_params

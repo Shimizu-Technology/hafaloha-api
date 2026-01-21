@@ -20,7 +20,14 @@ Rails.application.routes.draw do
         get 'dashboard/stats', to: 'dashboard#stats'
         
         # Orders (admin management)
-        resources :orders, only: [:index, :show, :update]
+        resources :orders, only: [:index, :show, :update] do
+          member do
+            post :notify  # Resend notification email
+          end
+        end
+        
+        # Users (admin management)
+        resources :users, only: [:index, :show, :update]
         
         # Site Settings (singleton resource)
         resource :site_settings, only: [:show, :update]
@@ -41,6 +48,16 @@ Rails.application.routes.draw do
         
         # Collections
         resources :collections, except: [:new, :edit]
+        
+        # Acai Management
+        namespace :acai do
+          resource :settings, only: [:show, :update]
+          resources :crust_options, except: [:new, :edit]
+          resources :placard_options, except: [:new, :edit]
+          resources :pickup_windows, except: [:new, :edit]
+          resources :blocked_slots, except: [:new, :edit]
+          get 'orders', to: 'orders#index'
+        end
         
         # Products
         resources :products, except: [:new, :edit] do
@@ -91,6 +108,12 @@ Rails.application.routes.draw do
       
       # Config endpoint (public)
       get 'config', to: 'config#show'
+      
+      # Acai Cakes routes (public ordering)
+      get 'acai/config', to: 'acai#show_config'
+      get 'acai/available_dates', to: 'acai#available_dates'
+      get 'acai/available_slots', to: 'acai#available_slots'
+      post 'acai/orders', to: 'acai#create_order'
       
       # Orders
       resources :orders, only: [:create, :show, :index, :update]

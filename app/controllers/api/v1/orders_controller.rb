@@ -116,11 +116,11 @@ module Api
           clear_cart(cart_items)
           
           # Send confirmation emails (asynchronously via Sidekiq)
-          # Only send customer emails if enabled in settings
-          if settings.send_customer_emails
+          # Check per-order-type email settings
+          if settings.send_emails_for?(order.order_type)
             SendOrderConfirmationEmailJob.perform_later(order.id)
           else
-            Rails.logger.info "📧 Customer email disabled - skipping confirmation email for Order ##{order.order_number}"
+            Rails.logger.info "📧 Customer email disabled for #{order.order_type} orders - skipping confirmation email for Order ##{order.order_number}"
           end
           
           # Always send admin notifications
@@ -339,7 +339,7 @@ module Api
       end
 
       def order_json(order)
-        {
+        json = {
           id: order.id,
           order_number: order.order_number,
           status: order.status,
@@ -353,12 +353,6 @@ module Api
           tax_cents: order.tax_cents,
           total_cents: order.total_cents,
           shipping_method: order.shipping_method,
-          shipping_address_line1: order.shipping_address_line1,
-          shipping_address_line2: order.shipping_address_line2,
-          shipping_city: order.shipping_city,
-          shipping_state: order.shipping_state,
-          shipping_zip: order.shipping_zip,
-          shipping_country: order.shipping_country,
           created_at: order.created_at.iso8601,
           item_count: order.order_items.count,
           order_items: order.order_items.map do |item|
@@ -373,10 +367,35 @@ module Api
             }
           end
         }
+
+        # Add shipping info for retail orders
+        if order.order_type == 'retail'
+          json.merge!(
+            shipping_address_line1: order.shipping_address_line1,
+            shipping_address_line2: order.shipping_address_line2,
+            shipping_city: order.shipping_city,
+            shipping_state: order.shipping_state,
+            shipping_zip: order.shipping_zip,
+            shipping_country: order.shipping_country
+          )
+        end
+
+        # Add Acai-specific fields for acai orders
+        if order.order_type == 'acai'
+          json.merge!(
+            acai_pickup_date: order.acai_pickup_date&.to_s,
+            acai_pickup_time: order.acai_pickup_time,
+            acai_crust_type: order.acai_crust_type,
+            acai_include_placard: order.acai_include_placard,
+            acai_placard_text: order.acai_placard_text
+          )
+        end
+
+        json
       end
 
       def detailed_order_json(order)
-        {
+        json = {
           id: order.id,
           order_number: order.order_number,
           status: order.status,
@@ -392,12 +411,6 @@ module Api
           total_formatted: "$#{'%.2f' % (order.total_cents / 100.0)}",
           created_at: order.created_at.iso8601,
           shipping_method: order.shipping_method,
-          shipping_address_line1: order.shipping_address_line1,
-          shipping_address_line2: order.shipping_address_line2,
-          shipping_city: order.shipping_city,
-          shipping_state: order.shipping_state,
-          shipping_zip: order.shipping_zip,
-          shipping_country: order.shipping_country,
           order_items: order.order_items.map do |item|
             {
               id: item.id,
@@ -410,6 +423,34 @@ module Api
             }
           end
         }
+
+        # Add shipping info for retail orders
+        if order.order_type == 'retail'
+          json.merge!(
+            shipping_address_line1: order.shipping_address_line1,
+            shipping_address_line2: order.shipping_address_line2,
+            shipping_city: order.shipping_city,
+            shipping_state: order.shipping_state,
+            shipping_zip: order.shipping_zip,
+            shipping_country: order.shipping_country
+          )
+        end
+
+        # Add Acai-specific fields for acai orders
+        if order.order_type == 'acai'
+          acai_settings = AcaiSetting.instance
+          json.merge!(
+            acai_pickup_date: order.acai_pickup_date&.to_s,
+            acai_pickup_time: order.acai_pickup_time,
+            acai_crust_type: order.acai_crust_type,
+            acai_include_placard: order.acai_include_placard,
+            acai_placard_text: order.acai_placard_text,
+            pickup_location: acai_settings.pickup_location,
+            pickup_phone: acai_settings.pickup_phone
+          )
+        end
+
+        json
       end
 
       def order_params
