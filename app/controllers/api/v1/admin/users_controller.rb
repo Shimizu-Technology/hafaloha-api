@@ -16,8 +16,8 @@ module Api
           # Search by email or name
           if params[:search].present?
             search_term = "%#{params[:search].downcase}%"
-            users = users.where("LOWER(email) LIKE ? OR LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ?", 
-                               search_term, search_term, search_term)
+            users = users.where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?", 
+                               search_term, search_term)
           end
 
           # Filter by role
@@ -73,9 +73,8 @@ module Api
           {
             id: user.id,
             email: user.email,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            full_name: [user.first_name, user.last_name].compact.join(' ').presence || 'Unknown',
+            name: user.name,
+            phone: user.phone,
             role: user.role,
             is_admin: user.admin?,
             clerk_id: user.clerk_id,

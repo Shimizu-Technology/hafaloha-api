@@ -1,6 +1,8 @@
 class Fundraiser < ApplicationRecord
   has_many :participants, dependent: :destroy
   has_many :orders, dependent: :restrict_with_error
+  has_many :fundraiser_products, dependent: :destroy
+  has_many :products, through: :fundraiser_products
 
   # Validations
   validates :name, presence: true
@@ -8,10 +10,12 @@ class Fundraiser < ApplicationRecord
   validates :status, inclusion: { in: %w[draft active ended cancelled] }, allow_nil: false
 
   # Scopes
-  scope :active, -> { where(status: 'active').where('start_date <= ? AND end_date >= ?', Date.current, Date.current) }
+  scope :active, -> { where(status: 'active').where('start_date <= ? AND (end_date >= ? OR end_date IS NULL)', Date.current, Date.current) }
+  scope :published, -> { where(status: %w[active ended]) }
   scope :upcoming, -> { where('start_date > ?', Date.current) }
   scope :ended, -> { where('end_date < ?', Date.current).or(where(status: 'ended')) }
   scope :recent, -> { order(start_date: :desc) }
+  scope :by_status, ->(status) { where(status: status) if status.present? }
 
   # Callbacks
   before_validation :generate_slug, if: -> { slug.blank? }

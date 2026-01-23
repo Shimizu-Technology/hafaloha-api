@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_21_073530) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -131,7 +131,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_073530) do
     t.index ["slug"], name: "index_collections_on_slug", unique: true
   end
 
+  create_table "fundraiser_products", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.bigint "fundraiser_id", null: false
+    t.integer "max_quantity"
+    t.integer "min_quantity", default: 1
+    t.integer "position", default: 0
+    t.integer "price_cents", null: false
+    t.bigint "product_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fundraiser_id", "active"], name: "index_fundraiser_products_on_fundraiser_id_and_active"
+    t.index ["fundraiser_id", "position"], name: "index_fundraiser_products_on_fundraiser_id_and_position"
+    t.index ["fundraiser_id", "product_id"], name: "index_fundraiser_products_on_fundraiser_id_and_product_id", unique: true
+    t.index ["fundraiser_id"], name: "index_fundraiser_products_on_fundraiser_id"
+    t.index ["product_id"], name: "index_fundraiser_products_on_product_id"
+  end
+
   create_table "fundraisers", force: :cascade do |t|
+    t.boolean "allow_shipping", default: false, null: false
     t.string "contact_email"
     t.string "contact_name"
     t.string "contact_phone"
@@ -141,10 +159,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_073530) do
     t.integer "goal_amount_cents"
     t.string "image_url"
     t.string "name"
+    t.text "pickup_instructions"
+    t.string "pickup_location"
+    t.text "public_message"
     t.integer "raised_amount_cents"
+    t.text "shipping_note"
     t.string "slug"
     t.date "start_date"
     t.string "status"
+    t.text "thank_you_message"
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_fundraisers_on_slug", unique: true
   end
@@ -384,6 +407,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_073530) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "cart_items", "product_variants"
   add_foreign_key "cart_items", "users"
+  add_foreign_key "fundraiser_products", "fundraisers"
+  add_foreign_key "fundraiser_products", "products"
   add_foreign_key "imports", "users"
   add_foreign_key "order_items", "orders"
   add_foreign_key "order_items", "product_variants"

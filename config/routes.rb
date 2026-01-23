@@ -59,6 +59,24 @@ Rails.application.routes.draw do
           get 'orders', to: 'orders#index'
         end
         
+        # Fundraiser Management
+        resources :fundraisers, except: [:new, :edit] do
+          # Nested participants
+          resources :participants, controller: 'fundraisers/participants', except: [:new, :edit] do
+            collection do
+              post :bulk_create
+            end
+          end
+          
+          # Nested fundraiser products
+          resources :products, controller: 'fundraisers/products', except: [:new, :edit] do
+            collection do
+              post :reorder
+              get :available
+            end
+          end
+        end
+        
         # Products
         resources :products, except: [:new, :edit] do
           member do
@@ -92,6 +110,11 @@ Rails.application.routes.draw do
       # Public routes (no authentication required)
       resources :products, only: [:index, :show]
       resources :collections, only: [:index, :show]
+      resources :fundraisers, only: [:index, :show] do
+        member do
+          post :create_order
+        end
+      end
       resources :homepage_sections, only: [:index]
       
       # Cart routes (authentication optional - supports guest carts)
