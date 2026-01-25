@@ -74,8 +74,10 @@ module Api
       # PATCH/PUT /api/v1/admin/orders/:id
       # Update order (status, tracking, notes)
       def update
+        old_status = @order.status
+        
         if @order.update(order_update_params)
-          # Send email notifications based on status changes
+          # Handle status changes
           if @order.saved_change_to_status?
             case @order.status
             when 'shipped'
@@ -84,6 +86,9 @@ module Api
             when 'ready'
               # Send ready for pickup notification
               SendOrderReadyEmailJob.perform_later(@order.id)
+            when 'cancelled'
+              # Restore inventory when order is cancelled
+              restore_inventory(@order, current_user)
             end
           end
           
@@ -160,8 +165,8 @@ module Api
         
         if order.save
           Rails.logger.info "✅ Order saved successfully! Order ##{order.order_number}"
-          # Deduct inventory (with locking to prevent race conditions)
-          deduct_inventory(cart_items)
+          # Deduct inventory (with locking to prevent race conditions) and create audit trail
+          deduct_inventory(cart_items, order)
           
           # Clear cart
           clear_cart(cart_items)
@@ -236,11 +241,33 @@ module Api
 
       def get_cart_items
         if current_user
+          # First, merge any session cart items to the user
+          merge_session_cart_to_user
           current_user.cart_items.includes(product_variant: { product: :product_images })
         else
           session_id = request.headers['X-Session-ID'] || cookies[:session_id]
           return [] if session_id.blank?
           CartItem.where(session_id: session_id).includes(product_variant: { product: :product_images })
+        end
+      end
+
+      # Merge session-based cart items to the logged-in user
+      def merge_session_cart_to_user
+        session_id = request.headers['X-Session-ID'] || request.cookies['session_id']
+        return unless current_user && session_id.present?
+        
+        session_items = CartItem.where(session_id: session_id)
+        return if session_items.empty?
+        
+        session_items.each do |session_item|
+          existing_item = current_user.cart_items.find_by(product_variant_id: session_item.product_variant_id)
+          
+          if existing_item
+            existing_item.update(quantity: existing_item.quantity + session_item.quantity)
+            session_item.destroy
+          else
+            session_item.update(user_id: current_user.id, session_id: nil)
+          end
         end
       end
 
@@ -317,23 +344,108 @@ module Api
         order
       end
 
-      def deduct_inventory(cart_items)
+      def deduct_inventory(cart_items, order)
         cart_items.each do |item|
           variant = item.product_variant
+          product = variant.product
           
-          # Use row locking to prevent race conditions
-          variant.with_lock do
-            new_stock = variant.stock_quantity - item.quantity
-            if new_stock < 0
-              raise StandardError, "Not enough stock for #{variant.sku}"
+          case product.inventory_level
+          when 'variant'
+            # Use row locking to prevent race conditions
+            variant.with_lock do
+              previous_stock = variant.stock_quantity
+              new_stock = previous_stock - item.quantity
+              if new_stock < 0
+                raise StandardError, "Not enough stock for #{variant.sku}"
+              end
+              variant.update!(stock_quantity: new_stock)
+              
+              # Create audit record inside the lock for atomicity
+              InventoryAudit.record_order_placed(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                previous_qty: previous_stock
+              )
             end
-            variant.update!(stock_quantity: new_stock)
+            
+          when 'product'
+            # Decrement product-level stock with audit trail
+            product.with_lock do
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = previous_stock - item.quantity
+              if new_stock < 0
+                raise StandardError, "Not enough stock for #{product.name}"
+              end
+              product.update!(product_stock_quantity: new_stock)
+              
+              # Create audit record for product-level tracking
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Order ##{order.order_number} placed",
+                audit_type: 'order_placed',
+                order: order
+              )
+            end
+            
+          when 'none'
+            # Do nothing - not tracking inventory
+            next
           end
         end
       end
 
       def clear_cart(cart_items)
         cart_items.destroy_all
+      end
+
+      # Restore inventory when an order is cancelled
+      def restore_inventory(order, user = nil)
+        order.order_items.includes(product_variant: :product).each do |item|
+          variant = item.product_variant
+          next unless variant # Skip if variant was deleted
+          
+          product = variant.product
+          
+          case product.inventory_level
+          when 'variant'
+            variant.with_lock do
+              previous_stock = variant.stock_quantity
+              new_stock = previous_stock + item.quantity
+              variant.update!(stock_quantity: new_stock)
+              
+              # Create audit record for cancellation
+              InventoryAudit.record_order_cancelled(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                user: user
+              )
+            end
+            
+          when 'product'
+            product.with_lock do
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = previous_stock + item.quantity
+              product.update!(product_stock_quantity: new_stock)
+              
+              # Create audit record for product-level tracking
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Order ##{order.order_number} cancelled - stock restored",
+                audit_type: 'order_cancelled',
+                order: order,
+                user: user
+              )
+            end
+          end
+        end
+        
+        Rails.logger.info "📦 Inventory restored for cancelled order ##{order.order_number}"
       end
 
       def order_json(order)

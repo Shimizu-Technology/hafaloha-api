@@ -160,8 +160,8 @@ module Api
         order.payment_intent_id = payment_result[:charge_id]
 
         if order.save
-          # Deduct inventory
-          deduct_inventory(order.order_items)
+          # Deduct inventory and create audit trail
+          deduct_inventory(order.order_items, order)
           
           # Update fundraiser raised amount
           @fundraiser.update_raised_amount!
@@ -188,7 +188,7 @@ module Api
 
       private
 
-      def deduct_inventory(order_items)
+      def deduct_inventory(order_items, order)
         order_items.each do |item|
           variant = item.product_variant
           product = variant.product
@@ -196,13 +196,33 @@ module Api
           case product.inventory_level
           when 'variant'
             variant.with_lock do
-              new_stock = variant.stock_quantity - item.quantity
-              variant.update!(stock_quantity: [new_stock, 0].max)
+              previous_stock = variant.stock_quantity
+              new_stock = [previous_stock - item.quantity, 0].max
+              variant.update!(stock_quantity: new_stock)
+              
+              # Create audit record inside the lock for atomicity
+              InventoryAudit.record_order_placed(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                previous_qty: previous_stock
+              )
             end
           when 'product'
             product.with_lock do
-              new_stock = (product.product_stock_quantity || 0) - item.quantity
-              product.update!(product_stock_quantity: [new_stock, 0].max)
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = [previous_stock - item.quantity, 0].max
+              product.update!(product_stock_quantity: new_stock)
+              
+              # Create audit record for product-level tracking
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Fundraiser order ##{order.order_number} placed",
+                audit_type: 'order_placed',
+                order: order
+              )
             end
           end
         end

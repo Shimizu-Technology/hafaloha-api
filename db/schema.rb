@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_25_015215) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -211,6 +211,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
     t.index ["user_id"], name: "index_imports_on_user_id"
   end
 
+  create_table "inventory_audits", force: :cascade do |t|
+    t.string "audit_type", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.integer "new_quantity", default: 0, null: false
+    t.bigint "order_id"
+    t.integer "previous_quantity", default: 0, null: false
+    t.bigint "product_id"
+    t.bigint "product_variant_id"
+    t.integer "quantity_change", default: 0, null: false
+    t.text "reason"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["audit_type"], name: "index_inventory_audits_on_audit_type"
+    t.index ["created_at"], name: "index_inventory_audits_on_created_at"
+    t.index ["order_id"], name: "idx_audits_on_order"
+    t.index ["order_id"], name: "index_inventory_audits_on_order_id"
+    t.index ["product_id", "created_at"], name: "idx_audits_on_product_and_date"
+    t.index ["product_id"], name: "index_inventory_audits_on_product_id"
+    t.index ["product_variant_id", "created_at"], name: "idx_audits_on_variant_and_date"
+    t.index ["product_variant_id"], name: "index_inventory_audits_on_product_variant_id"
+    t.index ["user_id", "created_at"], name: "idx_audits_on_user_and_date"
+    t.index ["user_id"], name: "index_inventory_audits_on_user_id"
+  end
+
   create_table "order_items", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "order_id", null: false
@@ -331,6 +356,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
     t.boolean "is_default", default: false, null: false
     t.integer "low_stock_threshold", default: 5, null: false
     t.string "material"
+    t.jsonb "options", default: {}, null: false
     t.integer "price_cents"
     t.bigint "product_id", null: false
     t.string "shopify_variant_id"
@@ -341,6 +367,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
     t.string "variant_key"
     t.string "variant_name"
     t.decimal "weight_oz"
+    t.index ["options"], name: "index_product_variants_on_options", using: :gin
     t.index ["product_id", "is_default"], name: "index_product_variants_on_product_id_and_is_default"
     t.index ["product_id"], name: "index_product_variants_on_product_id"
     t.index ["sku"], name: "index_product_variants_on_sku", unique: true
@@ -403,6 +430,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
     t.index ["role"], name: "index_users_on_role"
   end
 
+  create_table "variant_presets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "description"
+    t.string "name", null: false
+    t.string "option_type", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "values", default: [], null: false
+    t.index ["name"], name: "index_variant_presets_on_name", unique: true
+    t.index ["option_type"], name: "index_variant_presets_on_option_type"
+    t.index ["position"], name: "index_variant_presets_on_position"
+  end
+
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "cart_items", "product_variants"
@@ -410,6 +450,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_21_125943) do
   add_foreign_key "fundraiser_products", "fundraisers"
   add_foreign_key "fundraiser_products", "products"
   add_foreign_key "imports", "users"
+  add_foreign_key "inventory_audits", "orders"
+  add_foreign_key "inventory_audits", "product_variants"
+  add_foreign_key "inventory_audits", "products"
+  add_foreign_key "inventory_audits", "users"
   add_foreign_key "order_items", "orders"
   add_foreign_key "order_items", "product_variants"
   add_foreign_key "order_items", "products"

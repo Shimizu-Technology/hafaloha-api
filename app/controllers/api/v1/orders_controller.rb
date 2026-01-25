@@ -8,6 +8,37 @@ module Api
       before_action :authenticate_optional, only: [:create, :show]
       before_action :require_admin!, only: [:index, :update]
 
+      # GET /api/v1/orders/my
+      # List orders for the current authenticated user
+      def my_orders
+        unless current_user
+          return render json: { error: 'Authentication required' }, status: :unauthorized
+        end
+
+        page = (params[:page] || 1).to_i
+        per_page = (params[:per_page] || 10).to_i
+
+        orders_query = current_user.orders.includes(:order_items).order(created_at: :desc)
+
+        # Optional status filter
+        if params[:status].present?
+          orders_query = orders_query.where(status: params[:status])
+        end
+
+        total_count = orders_query.count
+        orders = orders_query.offset((page - 1) * per_page).limit(per_page)
+
+        render json: {
+          orders: orders.map { |order| customer_order_json(order) },
+          pagination: {
+            current_page: page,
+            per_page: per_page,
+            total_count: total_count,
+            total_pages: (total_count.to_f / per_page).ceil
+          }
+        }
+      end
+
       # GET /api/v1/orders
       # List all orders (admin only)
       def index
@@ -109,8 +140,8 @@ module Api
         
         if order.save
           Rails.logger.info "✅ Order saved successfully! Order ##{order.order_number}"
-          # Deduct inventory (with locking to prevent race conditions)
-          deduct_inventory(cart_items)
+          # Deduct inventory (with locking to prevent race conditions) and create audit trail
+          deduct_inventory(cart_items, order)
           
           # Clear cart
           clear_cart(cart_items)
@@ -179,11 +210,37 @@ module Api
 
       def get_cart_items
         if current_user
+          # First, merge any session cart items to the user
+          merge_session_cart_to_user
           current_user.cart_items.includes(product_variant: { product: :product_images })
         else
-          session_id = request.headers['X-Session-ID'] || cookies[:session_id]
+          session_id = request.headers['X-Session-ID'] || request.cookies['session_id']
           return [] if session_id.blank?
           CartItem.where(session_id: session_id).includes(product_variant: { product: :product_images })
+        end
+      end
+
+      # Merge session-based cart items to the logged-in user
+      # This handles the case where user added items before logging in
+      def merge_session_cart_to_user
+        session_id = request.headers['X-Session-ID'] || request.cookies['session_id']
+        return unless current_user && session_id.present?
+        
+        session_items = CartItem.where(session_id: session_id)
+        return if session_items.empty?
+        
+        session_items.each do |session_item|
+          # Check if user already has this variant in their cart
+          existing_item = current_user.cart_items.find_by(product_variant_id: session_item.product_variant_id)
+          
+          if existing_item
+            # Merge quantities
+            existing_item.update(quantity: existing_item.quantity + session_item.quantity)
+            session_item.destroy
+          else
+            # Transfer the session item to the user
+            session_item.update(user_id: current_user.id, session_id: nil)
+          end
         end
       end
 
@@ -301,30 +358,50 @@ module Api
         order
       end
 
-      def deduct_inventory(cart_items)
+      def deduct_inventory(cart_items, order)
         cart_items.each do |item|
           variant = item.product_variant
           product = variant.product
           
           case product.inventory_level
           when 'variant'
-            # Decrement variant-level stock
+            # Decrement variant-level stock with audit trail
             variant.with_lock do
-              new_stock = variant.stock_quantity - item.quantity
+              previous_stock = variant.stock_quantity
+              new_stock = previous_stock - item.quantity
               if new_stock < 0
                 raise StandardError, "Not enough stock for #{variant.sku}"
               end
               variant.update!(stock_quantity: new_stock)
+              
+              # Create audit record inside the lock for atomicity
+              InventoryAudit.record_order_placed(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                previous_qty: previous_stock
+              )
             end
             
           when 'product'
-            # Decrement product-level stock
+            # Decrement product-level stock with audit trail
             product.with_lock do
-              new_stock = (product.product_stock_quantity || 0) - item.quantity
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = previous_stock - item.quantity
               if new_stock < 0
                 raise StandardError, "Not enough stock for #{product.name}"
               end
               product.update!(product_stock_quantity: new_stock)
+              
+              # Create audit record for product-level tracking
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Order ##{order.order_number} placed",
+                audit_type: 'order_placed',
+                order: order
+              )
             end
             
           when 'none'
@@ -399,6 +476,7 @@ module Api
           id: order.id,
           order_number: order.order_number,
           status: order.status,
+          status_display: order.status.titleize,
           payment_status: order.payment_status,
           order_type: order.order_type,
           customer_name: order.name,
@@ -432,7 +510,10 @@ module Api
             shipping_city: order.shipping_city,
             shipping_state: order.shipping_state,
             shipping_zip: order.shipping_zip,
-            shipping_country: order.shipping_country
+            shipping_country: order.shipping_country,
+            tracking_number: order.tracking_number,
+            tracking_url: tracking_url_for(order),
+            can_track: order.tracking_number.present?
           )
         end
 
@@ -465,6 +546,59 @@ module Api
 
       def order_update_params
         params.require(:order).permit(:status, :admin_notes, :tracking_number)
+      end
+
+      # Generate tracking URL based on carrier
+      def tracking_url_for(order)
+        return nil unless order.tracking_number.present?
+        
+        tracking = order.tracking_number
+        carrier = order.shipping_method&.downcase || ''
+        
+        if carrier.include?('usps')
+          "https://tools.usps.com/go/TrackConfirmAction?tLabels=#{tracking}"
+        elsif carrier.include?('ups')
+          "https://www.ups.com/track?tracknum=#{tracking}"
+        elsif carrier.include?('fedex')
+          "https://www.fedex.com/fedextrack/?trknbr=#{tracking}"
+        elsif carrier.include?('dhl')
+          "https://www.dhl.com/en/express/tracking.html?AWB=#{tracking}"
+        else
+          # Generic - try USPS as default for Guam
+          "https://tools.usps.com/go/TrackConfirmAction?tLabels=#{tracking}"
+        end
+      end
+
+      # Simplified order JSON for customer-facing order history
+      def customer_order_json(order)
+        {
+          id: order.id,
+          order_number: order.order_number,
+          status: order.status,
+          status_display: order.status.titleize,
+          order_type: order.order_type,
+          order_type_display: order.order_type.titleize,
+          total_cents: order.total_cents,
+          total_formatted: "$#{'%.2f' % (order.total_cents / 100.0)}",
+          item_count: order.order_items.sum(:quantity),
+          created_at: order.created_at.iso8601,
+          created_at_display: order.created_at.strftime('%B %d, %Y'),
+          # Tracking info (for shipped orders)
+          tracking_number: order.tracking_number,
+          shipping_method: order.shipping_method,
+          # Status flags for UI
+          can_track: order.tracking_number.present?,
+          is_delivered: order.status == 'delivered',
+          is_cancelled: order.status == 'cancelled',
+          # Preview of items
+          items_preview: order.order_items.first(3).map do |item|
+            {
+              product_name: item.product_name,
+              variant_name: item.variant_name,
+              quantity: item.quantity
+            }
+          end
+        }
       end
     end
   end

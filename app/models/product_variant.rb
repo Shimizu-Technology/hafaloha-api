@@ -27,9 +27,40 @@ class ProductVariant < ApplicationRecord
     self.price_cents = (amount.to_f * 100).to_i
   end
 
-  # Instance methods
+  # ==========================================
+  # Options / Display Methods
+  # ==========================================
+
+  # Primary display method - uses options first, falls back to legacy columns
   def display_name
-    variant_name || [size, color].compact.join(' / ')
+    variant_name.presence || options_display_name || legacy_display_name
+  end
+
+  # Generate display name from flexible options JSONB field
+  def options_display_name
+    return nil if options.blank?
+    options.values.compact.join(' / ')
+  end
+
+  # Fallback to legacy size/color columns (for backward compatibility)
+  def legacy_display_name
+    [size, color].compact.join(' / ').presence
+  end
+
+  # Get options with indifferent access
+  def options_hash
+    return {} if options.blank?
+    options.with_indifferent_access
+  end
+
+  # Get a specific option value
+  def option_value(option_type)
+    options_hash[option_type]
+  end
+
+  # Get all option types for this variant
+  def option_types
+    options_hash.keys
   end
 
   def in_stock?
@@ -68,16 +99,30 @@ class ProductVariant < ApplicationRecord
 
   private
 
+  # Generate variant key from options (or legacy columns as fallback)
   def generate_variant_key
-    parts = [size, color].compact.map(&:parameterize)
-    self.variant_key = parts.join('-')
+    if options.present?
+      # Use options JSONB field
+      parts = options.values.compact.map { |v| v.to_s.parameterize }
+      self.variant_key = parts.join('-')
+    else
+      # Fallback to legacy columns
+      parts = [size, color].compact.map(&:parameterize)
+      self.variant_key = parts.join('-')
+    end
   end
 
+  # Generate display name from options (or legacy columns as fallback)
   def generate_variant_name
-    parts = [size, color].compact
-    self.variant_name = parts.join(' / ') if parts.any?
+    if options.present?
+      self.variant_name = options.values.compact.join(' / ')
+    else
+      parts = [size, color].compact
+      self.variant_name = parts.join(' / ') if parts.any?
+    end
   end
 
+  # Generate SKU from variant key
   def generate_sku
     base = product.sku_prefix || product.slug
     self.sku = "#{base}-#{variant_key}".upcase

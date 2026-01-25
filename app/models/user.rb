@@ -10,7 +10,7 @@ class User < ApplicationRecord
   # Associations
   has_many :cart_items, dependent: :destroy
   has_many :imports, dependent: :destroy
-  # has_many :orders (future)
+  has_many :orders, dependent: :nullify  # Keep orders but remove user association on delete
 
   # Scopes
   scope :admins, -> { where(role: 'admin') }

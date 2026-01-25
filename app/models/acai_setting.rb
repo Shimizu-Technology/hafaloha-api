@@ -10,17 +10,17 @@ class AcaiSetting < ApplicationRecord
   # Singleton pattern - only one row in the table
   def self.instance
     first_or_create!(
-      name: 'Heart-Shaped Açaí Cake',
-      description: "This limited-time fruit-astic beauty comes loaded with four delicious toppings:\n🍌 Banana • 🍓 Strawberry • 🫐 Blueberry • 🥭 Mango",
-      base_price_cents: 4500,
-      pickup_location: '955 Pale San Vitores Rd, Tumon, Blue Lagoon Plaza',
-      pickup_phone: '671-989-3444',
-      advance_hours: 24,
+      name: 'Açaí Cake (10")',
+      description: "Our signature 10-inch Açaí Cake made with fresh, island-inspired flavors.\n\nChoose from Set A or Set B toppings. Pick-up available Monday - Saturday.",
+      base_price_cents: 6200,
+      pickup_location: '121 E. Marine Corps Dr, Suite 1-103 & 1-104, Hagåtña, Guam 96910',
+      pickup_phone: '671-472-7733',
+      advance_hours: 48,
       max_per_slot: 5,
       active: true,
       placard_enabled: true,
       placard_price_cents: 0,
-      toppings_info: 'Banana, Strawberry, Blueberry, Mango'
+      toppings_info: 'Set A: Blueberry, Banana, Strawberry | Set B: Coconut, Mango, Strawberry'
     )
   end
 

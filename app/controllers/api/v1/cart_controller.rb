@@ -228,11 +228,36 @@ module Api
         # Don't include product_images here to avoid JOIN multiplication in SUM queries
         # Product images will be loaded individually when needed
         if current_user
+          # First, merge any session cart items to the user
+          merge_session_cart_to_user if session_id.present?
           current_user.cart_items.includes(product_variant: :product)
         elsif session_id.present?
           CartItem.for_session(session_id).includes(product_variant: :product)
         else
           CartItem.none
+        end
+      end
+
+      # Merge session-based cart items to the logged-in user
+      # This handles the case where user added items before logging in
+      def merge_session_cart_to_user
+        return unless current_user && session_id.present?
+        
+        session_items = CartItem.for_session(session_id)
+        return if session_items.empty?
+        
+        session_items.each do |session_item|
+          # Check if user already has this variant in their cart
+          existing_item = current_user.cart_items.find_by(product_variant_id: session_item.product_variant_id)
+          
+          if existing_item
+            # Merge quantities
+            existing_item.update(quantity: existing_item.quantity + session_item.quantity)
+            session_item.destroy
+          else
+            # Transfer the session item to the user
+            session_item.update(user_id: current_user.id, session_id: nil)
+          end
         end
       end
 

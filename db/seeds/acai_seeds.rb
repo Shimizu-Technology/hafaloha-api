@@ -9,12 +9,11 @@ puts "🍰 Seeding Acai Cakes data..."
 settings = AcaiSetting.instance
 puts "  ✅ AcaiSetting created/loaded: #{settings.name} - #{settings.formatted_price}"
 
-# Create crust options based on Instagram posts
+# Create crust options matching hafaloha.com pricing
 crust_options = [
-  { name: 'Granola with Honey', description: 'Classic crunchy granola base drizzled with sweet honey', price_cents: 0, position: 1 },
-  { name: 'Peanut Butter', description: 'Creamy peanut butter base for a nutty twist', price_cents: 0, position: 2 },
-  { name: 'Nutella', description: 'Rich chocolate hazelnut spread base', price_cents: 0, position: 3 },
-  { name: 'Honey', description: 'Simple sweet honey drizzle base', price_cents: 0, position: 4 }
+  { name: 'Peanut Butter', description: 'Creamy peanut butter base for a nutty twist', price_cents: 0, position: 1 },
+  { name: 'Nutella', description: 'Rich chocolate hazelnut spread base', price_cents: 450, position: 2 },
+  { name: 'Honey', description: 'Simple sweet honey drizzle base', price_cents: 450, position: 3 }
 ]
 
 crust_options.each do |attrs|
@@ -55,9 +54,12 @@ end
 # Sunday: 11 AM - 9 PM
 
 pickup_windows = [
-  # { day_of_week: 0, start_time: '11:00', end_time: '17:00', active: true },  # Sunday
-  { day_of_week: 5, start_time: '13:30', end_time: '15:30', active: true },  # Friday - 1:30 PM - 3:30 PM
-  { day_of_week: 6, start_time: '13:30', end_time: '15:30', active: true },  # Saturday - 1:30 PM - 3:30 PM
+  { day_of_week: 1, start_time: '09:00', end_time: '16:00', active: true },  # Monday
+  { day_of_week: 2, start_time: '09:00', end_time: '16:00', active: true },  # Tuesday
+  { day_of_week: 3, start_time: '09:00', end_time: '16:00', active: true },  # Wednesday
+  { day_of_week: 4, start_time: '09:00', end_time: '16:00', active: true },  # Thursday
+  { day_of_week: 5, start_time: '09:00', end_time: '16:00', active: true },  # Friday
+  { day_of_week: 6, start_time: '09:00', end_time: '16:00', active: true },  # Saturday
 ]
 
 pickup_windows.each do |attrs|

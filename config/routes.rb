@@ -77,6 +77,13 @@ Rails.application.routes.draw do
           end
         end
         
+        # Variant Presets (for flexible variant system)
+        resources :variant_presets, except: [:new, :edit] do
+          member do
+            post :duplicate
+          end
+        end
+        
         # Products
         resources :products, except: [:new, :edit] do
           member do
@@ -103,6 +110,26 @@ Rails.application.routes.draw do
             collection do
               post :reorder
             end
+          end
+          
+          # Nested inventory audits for a product
+          resources :inventory_audits, only: [:index], controller: 'inventory_audits', action: :for_product
+        end
+        
+        # Product variant inventory audits
+        resources :product_variants, only: [] do
+          resources :inventory_audits, only: [:index], controller: 'inventory_audits', action: :for_variant
+        end
+        
+        # Order inventory audits
+        resources :orders, only: [] do
+          resources :inventory_audits, only: [:index], controller: 'inventory_audits', action: :for_order
+        end
+        
+        # Inventory Audits (standalone)
+        resources :inventory_audits, only: [:index, :show] do
+          collection do
+            get :summary
           end
         end
       end
@@ -139,7 +166,11 @@ Rails.application.routes.draw do
       post 'acai/orders', to: 'acai#create_order'
       
       # Orders
-      resources :orders, only: [:create, :show, :index, :update]
+      resources :orders, only: [:create, :show, :index, :update] do
+        collection do
+          get :my, action: :my_orders  # GET /api/v1/orders/my - customer's order history
+        end
+      end
     end
   end
   
