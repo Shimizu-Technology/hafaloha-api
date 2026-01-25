@@ -71,4 +71,4 @@ end
 gem "jwt", "~> 2.5"
 gem "clerk-sdk-ruby", "~> 3.0"
 
-gem "money-rails", "~> 1.15"
+gem "money-rails", "~> 2.0"
