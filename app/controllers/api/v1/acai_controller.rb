@@ -202,6 +202,13 @@ module Api
           return render json: { error: 'No pickup window available for this day' }, status: :unprocessable_entity
         end
 
+
+        # HAF-5: Check if the requested date/slot is blocked
+        if AcaiBlockedSlot.is_blocked?(pickup_date, slot_time)
+          return render json: {
+            error: %q(This date/time slot is currently unavailable. Please select a different date or time.)
+          }, status: :unprocessable_entity
+        end
         # Check slot availability (cast time to text for comparison)
         slot_time = pickup_time.split('-').first.strip
         orders_count = Order.acai

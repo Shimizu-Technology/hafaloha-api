@@ -50,7 +50,7 @@ class VariantPreset < ApplicationRecord
     end
 
     values.each_with_index do |value, index|
-      unless value.is_a?(Hash)
+      unless value.is_a?(Hash) || value.respond_to?(:permit)
         errors.add(:values, "item at index #{index} must be a hash")
         next
       end

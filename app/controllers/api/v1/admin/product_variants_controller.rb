@@ -227,7 +227,7 @@ module Api
             variant_name: variant_name,
             sku: sku,
             price_cents: final_price_cents,
-            stock_quantity: 0,
+            stock_quantity: (params[:stock_quantity] || 0).to_i,
             available: true,
             weight_oz: @product.weight_oz,
             **legacy_attrs
@@ -321,7 +321,7 @@ module Api
             variant_name: variant_name,
             sku: sku,
             price_cents: @product.base_price_cents,
-            stock_quantity: 0,
+            stock_quantity: (params[:stock_quantity] || 0).to_i,
             available: true,
             weight_oz: @product.weight_oz
           )
@@ -334,7 +334,10 @@ module Api
         end
         
         def variant_params
-          params.require(:product_variant).permit(
+          source = params[:product_variant].presence || params[:variant].presence
+          raise ActionController::ParameterMissing, :product_variant unless source
+
+          source.permit(
             :size,
             :color,
             :material,

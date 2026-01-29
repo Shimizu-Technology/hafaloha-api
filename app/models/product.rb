@@ -1,4 +1,7 @@
 class Product < ApplicationRecord
+  include Sanitizable
+  sanitize_fields :name, :description, :meta_title, :meta_description
+
   # Associations
   has_many :product_variants, dependent: :destroy
   has_many :product_images, -> { order(position: :asc) }, dependent: :destroy
@@ -122,6 +125,7 @@ class Product < ApplicationRecord
   
   def generate_sku_prefix
     # Generate SKU prefix from product name
+    return if name.blank?
     # Example: "Hafaloha T-Shirt" -> "HAF-TSHIRT"
     words = name.to_s.upcase.split(/\s+/)
     if words.length > 1

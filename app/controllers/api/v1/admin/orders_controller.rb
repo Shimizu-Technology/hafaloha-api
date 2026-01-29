@@ -7,7 +7,7 @@ module Api
       include Authenticatable
         before_action :authenticate_request
         before_action :require_admin!
-        before_action :set_order, only: [:show, :update]
+        before_action :set_order, only: [:show, :update, :notify]
 
       # GET /api/v1/admin/orders
       # List all orders (admin only)
@@ -120,116 +120,11 @@ module Api
         end
       end
 
-      # POST /api/v1/orders
-      # Create a new order from cart + shipping + payment
-      def create
-        # Get site settings to check test mode
-        settings = SiteSetting.instance
-        
-        # Get cart items
-        cart_items = get_cart_items
-        
-        if cart_items.empty?
-          return render json: { error: 'Cart is empty' }, status: :unprocessable_entity
-        end
 
-        # Validate cart items are still available
-        validation_errors = validate_cart_items(cart_items)
-        if validation_errors.any?
-          return render json: { error: 'Cart validation failed', issues: validation_errors }, status: :unprocessable_entity
-        end
 
-        # Create order
-        order = build_order(cart_items)
 
-        # Process payment
-        payment_result = PaymentService.process_payment(
-          amount_cents: order.total_cents,
-          payment_method: order_params[:payment_method],
-          order: order,
-          customer_email: order.email,
-          test_mode: settings.payment_test_mode
-        )
 
-        unless payment_result[:success]
-          return render json: { error: payment_result[:error] }, status: :unprocessable_entity
-        end
 
-        # Save order with payment info
-        # Valid payment statuses: pending, paid, failed, refunded
-        order.payment_status = 'paid'  # Both test and real payments are 'paid'
-        order.payment_intent_id = payment_result[:charge_id]
-        
-        Rails.logger.info "💾 Attempting to save order..."
-        Rails.logger.info "   Order attributes: #{order.attributes.slice('order_type', 'status', 'email', 'phone', 'customer_name', 'shipping_city', 'shipping_state', 'payment_status').inspect}"
-        
-        if order.save
-          Rails.logger.info "✅ Order saved successfully! Order ##{order.order_number}"
-          # Deduct inventory (with locking to prevent race conditions) and create audit trail
-          deduct_inventory(cart_items, order)
-          
-          # Clear cart
-          clear_cart(cart_items)
-          
-          # Send confirmation emails (asynchronously via Sidekiq)
-          # Check per-order-type email settings
-          if settings.send_emails_for?(order.order_type)
-            SendOrderConfirmationEmailJob.perform_later(order.id)
-          else
-            Rails.logger.info "📧 Customer email disabled for #{order.order_type} orders - skipping confirmation email for Order ##{order.order_number}"
-          end
-          
-          # Always send admin notifications
-          SendAdminNotificationEmailJob.perform_later(order.id)
-          
-          render json: {
-            success: true,
-            order: order_json(order),
-            message: settings.payment_test_mode? ? 'Test order created successfully!' : 'Order placed successfully!'
-          }, status: :created
-        else
-          Rails.logger.error "❌ Order validation failed:"
-          order.errors.full_messages.each { |msg| Rails.logger.error "   - #{msg}" }
-          render json: { error: 'Failed to create order', errors: order.errors.full_messages }, status: :unprocessable_entity
-        end
-      rescue StandardError => e
-        Rails.logger.error "Order creation error: #{e.class} - #{e.message}"
-        Rails.logger.error e.backtrace.first(5).join("\n")
-        render json: { error: 'Failed to create order. Please try again.' }, status: :internal_server_error
-      end
-
-      # GET /api/v1/orders/:id
-      # Get order details
-      def show
-        order = Order.includes(order_items: { product_variant: :product }).find(params[:id])
-        
-        render json: {
-          order: detailed_order_json(order)
-        }
-      rescue ActiveRecord::RecordNotFound
-        render json: { error: 'Order not found' }, status: :not_found
-      end
-
-      # PATCH /api/v1/orders/:id
-      # Update order (admin only - for status changes, notes, etc.)
-      def update
-        order = Order.find(params[:id])
-        
-        if order.update(order_update_params)
-          render json: {
-            success: true,
-            order: detailed_order_json(order),
-            message: 'Order updated successfully'
-          }
-        else
-          render json: {
-            success: false,
-            errors: order.errors.full_messages
-          }, status: :unprocessable_entity
-        end
-      rescue ActiveRecord::RecordNotFound
-        render json: { error: 'Order not found' }, status: :not_found
-      end
 
       private
 
@@ -292,28 +187,28 @@ module Api
       end
 
       def build_order(cart_items)
-        shipping_address = order_params[:shipping_address]
-        shipping_method_params = order_params[:shipping_method]
+        shipping_address = order_params[:shipping_address] || {}
+        shipping_method_params = order_params[:shipping_method] || {}
         
         order = Order.new(
           user: current_user,
           order_type: 'retail',
           status: 'pending',
-          email: order_params[:email],
-          phone: order_params[:phone],
-          name: shipping_address[:name], # Customer name (saved to customer_name via alias)
+          email: order_params[:email] || order_params[:customer_email],
+          phone: order_params[:phone] || order_params[:customer_phone],
+          name: shipping_address[:name] || order_params[:customer_name],
           
           # Shipping address
-          shipping_address_line1: shipping_address[:street1],
-          shipping_address_line2: shipping_address[:street2],
-          shipping_city: shipping_address[:city],
-          shipping_state: shipping_address[:state],
-          shipping_zip: shipping_address[:zip],
-          shipping_country: shipping_address[:country] || 'US',
+          shipping_address_line1: shipping_address[:street1] || order_params[:shipping_address_line1],
+          shipping_address_line2: shipping_address[:street2] || order_params[:shipping_address_line2],
+          shipping_city: shipping_address[:city] || order_params[:shipping_city],
+          shipping_state: shipping_address[:state] || order_params[:shipping_state],
+          shipping_zip: shipping_address[:zip] || order_params[:shipping_zip],
+          shipping_country: shipping_address[:country] || order_params[:shipping_country] || 'US',
           
           # Shipping method (store as JSON/text with carrier and service info)
-          shipping_method: "#{shipping_method_params[:carrier]} #{shipping_method_params[:service]}",
-          shipping_cost_cents: shipping_method_params[:rate_cents]
+          shipping_method: [shipping_method_params[:carrier], shipping_method_params[:service]].compact.join(' ').presence,
+          shipping_cost_cents: shipping_method_params[:rate_cents] || 0
         )
 
         # Calculate totals
@@ -560,8 +455,10 @@ module Api
 
       def order_params
         params.require(:order).permit(
-          :email,
-          :phone,
+          :email, :phone,
+          :customer_name, :customer_email, :customer_phone,
+          :shipping_address_line1, :shipping_address_line2,
+          :shipping_city, :shipping_state, :shipping_zip, :shipping_country,
           shipping_address: [:name, :street1, :street2, :city, :state, :zip, :country],
           shipping_method: [:carrier, :service, :rate_cents, :rate_id],
           payment_method: [:token, :type]
