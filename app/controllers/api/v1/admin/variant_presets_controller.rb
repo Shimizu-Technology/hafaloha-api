@@ -110,13 +110,22 @@ module Api
         end
 
         def preset_params
-          params.require(:variant_preset).permit(
+          permitted = params.require(:variant_preset).permit(
             :name,
             :description,
             :option_type,
             :position,
             values: [:name, :price_adjustment_cents]
           )
+
+          # Normalize values to plain hashes for JSONB storage
+          if permitted[:values].present?
+            permitted[:values] = permitted[:values].map do |v|
+              v.respond_to?(:to_unsafe_h) ? v.to_unsafe_h : v.to_h
+            end
+          end
+
+          permitted
         end
 
         def preset_json(preset)
