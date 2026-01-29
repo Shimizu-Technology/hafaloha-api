@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 class HomepageSection < ApplicationRecord
+  include Sanitizable
+  sanitize_fields :title, :subtitle, :button_text
+
   # Section types
   SECTION_TYPES = %w[
     hero
@@ -9,6 +12,8 @@ class HomepageSection < ApplicationRecord
     promo_banner
     text_block
     image_gallery
+    banner
+    custom
   ].freeze
 
   # Validations

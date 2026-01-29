@@ -1,4 +1,7 @@
 class Product < ApplicationRecord
+  include Sanitizable
+  sanitize_fields :name, :description, :meta_title, :meta_description
+
   # Associations
   has_many :product_variants, dependent: :destroy
   has_many :product_images, -> { order(position: :asc) }, dependent: :destroy

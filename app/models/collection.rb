@@ -1,4 +1,7 @@
 class Collection < ApplicationRecord
+  include Sanitizable
+  sanitize_fields :name, :description
+
   # Associations
   has_many :product_collections, dependent: :destroy
   has_many :products, through: :product_collections

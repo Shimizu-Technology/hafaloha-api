@@ -143,8 +143,10 @@ module Api
 
       # DELETE /api/v1/cart
       def clear
-        count = get_cart_items.destroy_all
-        render json: { message: "Cart cleared (#{count} items removed)" }
+        items = get_cart_items
+        count = items.count
+        items.destroy_all
+        render json: { message: "Cart cleared", items_removed: count }
       end
 
       # POST /api/v1/cart/validate
