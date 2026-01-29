@@ -52,6 +52,7 @@ module Api
           if sections_data.blank?
             return render json: { error: "Missing 'sections' parameter. Expected: [{id: 1, position: 0}, ...]" },
                           status: :unprocessable_entity
+
           end
 
           begin
