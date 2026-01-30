@@ -62,12 +62,22 @@ module Authenticatable
     auth_header.split(' ').last
   end
 
+  ADMIN_EMAILS = %w[
+    shimizutechnology@gmail.com
+    jerry.shimizutechnology@gmail.com
+  ].freeze
+
   def find_or_create_user(clerk_id, email)
-    User.find_or_create_by!(clerk_id: clerk_id) do |user|
-      user.email = email
-      # Automatically make shimizutechnology@gmail.com an admin
-      user.role = (email == 'shimizutechnology@gmail.com') ? 'admin' : 'customer'
+    user = User.find_or_create_by!(clerk_id: clerk_id) do |u|
+      u.email = email
+      u.role = ADMIN_EMAILS.include?(email) ? 'admin' : 'customer'
     end
+
+    # Always sync admin status on login (handles users created before admin list was updated)
+    expected_role = ADMIN_EMAILS.include?(email) ? 'admin' : user.role
+    user.update!(role: expected_role, email: email) if user.role != expected_role || user.email != email
+
+    user
   end
 
   def render_unauthorized(message = 'Unauthorized')
