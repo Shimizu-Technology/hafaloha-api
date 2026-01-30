@@ -19,6 +19,9 @@ class Order < ApplicationRecord
   validates :payment_status, inclusion: { in: %w[pending paid failed refunded] }
   validates :total_cents, numericality: { greater_than_or_equal_to: 0 }
 
+  # Guest orders (no user_id) must have contact email so we can reach the customer
+  validates :customer_email, presence: { message: "is required for guest checkout" }, if: -> { user_id.nil? }
+
   # Scopes
   scope :retail, -> { where(order_type: 'retail') }
   scope :wholesale, -> { where(order_type: 'wholesale') }
