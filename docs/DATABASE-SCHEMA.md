@@ -18,7 +18,10 @@ Clerk-managed users (customers + admins)
 | role | string | 'customer' or 'admin' |
 | metadata | jsonb | For future extensions |
 
-**Admin Access:** Only `shimizutechnology@gmail.com` is an admin.
+**Admin Access:**
+- **Whitelist (ADMIN_EMAILS constant):** `shimizutechnology@gmail.com`, `jerry.shimizutechnology@gmail.com` — auto-promoted on first login
+- Any existing admin can promote other users via the Admin UI (User Management page)
+- Role field: `'customer'` or `'admin'`
 
 ---
 
@@ -194,13 +197,163 @@ CSV import history
 
 ---
 
+## 🛒 Wholesale/Fundraiser Models
+
+### **fundraisers**
+Wholesale fundraiser campaigns
+
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string | Fundraiser name |
+| slug | string | URL-friendly (unique) |
+| description | text | Campaign description |
+| start_date | date | Campaign start |
+| end_date | date | Campaign end |
+| contact_email | string | Contact email |
+| contact_phone | string | Contact phone |
+| banner_url | string | Banner image |
+| card_image_url | string | Card image |
+| active | boolean | Currently active |
+
+**Relationships:**
+- `has_many :fundraiser_products`
+- `has_many :participants`
+- `has_many :orders`
+
+---
+
+### **fundraiser_products**
+Products specific to a fundraiser campaign
+
+| Field | Type | Notes |
+|-------|------|-------|
+| fundraiser_id | references | Parent fundraiser |
+| product_id | references | Associated product |
+
+**Relationships:**
+- `belongs_to :fundraiser`
+- `belongs_to :product`
+
+---
+
+### **participants**
+Fundraiser participants (teams, individuals)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| fundraiser_id | references | Parent fundraiser |
+| name | string | Participant name |
+| email | string | Participant email |
+| phone | string | Participant phone |
+| active | boolean | Currently active |
+
+**Relationships:**
+- `belongs_to :fundraiser`
+
+---
+
+## 🍰 Acai Cakes Models
+
+### **acai_pickup_windows**
+Available pickup time slots per day of week
+
+| Field | Type | Notes |
+|-------|------|-------|
+| day_of_week | integer | 0-6 (0=Sunday) |
+| start_time | string | e.g., "13:30" |
+| end_time | string | e.g., "15:30" |
+| slot_duration_minutes | integer | e.g., 30 |
+| active | boolean | Whether this window is active |
+
+---
+
+### **acai_blocked_slots**
+Blocked dates/times (holidays, fully booked)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| date | date | Specific date to block |
+| start_time | string | e.g., "14:00" |
+| end_time | string | e.g., "14:30" |
+| reason | string | e.g., "Holiday", "Fully booked" |
+
+---
+
+### **acai_crust_options**
+Crust choices for Acai Cakes
+
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string | e.g., "Graham Cracker", "Oreo" |
+| additional_price_cents | integer | Price modifier |
+| available | boolean | Currently available |
+| position | integer | Sort order |
+
+---
+
+### **acai_placard_options**
+Placard/topper choices for Acai Cakes
+
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string | e.g., "Birthday", "Anniversary" |
+| additional_price_cents | integer | Price modifier |
+| available | boolean | Currently available |
+| position | integer | Sort order |
+
+---
+
+### **acai_settings**
+System settings for Acai Cake ordering
+
+| Field | Type | Notes |
+|-------|------|-------|
+| advance_notice_hours | integer | e.g., 24 (hours in advance required) |
+| max_orders_per_slot | integer | Capacity per time slot |
+| ordering_enabled | boolean | Global on/off for Acai ordering |
+
+---
+
+## 📦 Inventory & Variant Models
+
+### **inventory_audits**
+Audit trail for stock changes
+
+| Field | Type | Notes |
+|-------|------|-------|
+| product_id | references | Product audited |
+| product_variant_id | references | Variant audited (nullable) |
+| user_id | references | Admin who made the change |
+| previous_quantity | integer | Stock before change |
+| new_quantity | integer | Stock after change |
+| reason | string | Reason for change |
+| audit_type | string | e.g., 'manual_adjustment', 'order_deduction' |
+
+---
+
+### **variant_presets**
+Reusable variant templates (for flexible variant types)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| name | string | Preset name (e.g., "Standard Apparel Sizes") |
+| variant_type | string | e.g., "size", "color", "material" |
+| values | jsonb | Array of option values |
+| active | boolean | Currently available |
+
+---
+
 ## 🔗 Key Relationships
 
 ```
 User → Orders
 Product → Variants, Images, Collections
 Order → OrderItems → Product + Variant
-Collection → Products (many-to-many)
+Collection → Products (many-to-many via ProductCollection)
+Fundraiser → FundraiserProducts → Product
+Fundraiser → Participants
+Fundraiser → Orders
+InventoryAudit → Product, ProductVariant, User
 ```
 
 ---
