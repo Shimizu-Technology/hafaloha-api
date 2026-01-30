@@ -47,12 +47,25 @@ module Api
 
         # Bulk update positions
         def reorder
-          params[:sections].each do |section_data|
-            section = HomepageSection.find(section_data[:id])
-            section.update(position: section_data[:position])
+          sections_data = params[:sections]
+
+          if sections_data.blank?
+            return render json: { error: "Missing 'sections' parameter. Expected: [{id: 1, position: 0}, ...]" },
+                          status: :unprocessable_entity
           end
 
-          render json: { success: true }
+          begin
+            ActiveRecord::Base.transaction do
+              sections_data.each do |section_data|
+                section = HomepageSection.find(section_data[:id])
+                section.update!(position: section_data[:position])
+              end
+            end
+
+            render json: { success: true }
+          rescue ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid => e
+            render json: { error: e.message }, status: :unprocessable_entity
+          end
         end
 
         private
@@ -62,7 +75,15 @@ module Api
         end
 
         def section_params
-          params.require(:section).permit(
+          key = if params.key?(:section)
+                  :section
+                elsif params.key?(:homepage_section)
+                  :homepage_section
+                else
+                  :section
+                end
+
+          params.require(key).permit(
             :section_type,
             :position,
             :active,

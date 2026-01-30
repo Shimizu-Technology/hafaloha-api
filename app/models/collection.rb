@@ -1,4 +1,7 @@
 class Collection < ApplicationRecord
+  include Sanitizable
+  sanitize_fields :name, :description
+
   # Associations
   has_many :product_collections, dependent: :destroy
   has_many :products, through: :product_collections
@@ -23,6 +26,7 @@ class Collection < ApplicationRecord
   private
 
   def generate_slug
-    self.slug = name.to_s.parameterize
+    sanitized_name = ActionController::Base.helpers.strip_tags(name.to_s)
+    self.slug = sanitized_name.parameterize
   end
 end

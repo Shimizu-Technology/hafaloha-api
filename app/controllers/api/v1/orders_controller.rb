@@ -176,7 +176,7 @@ module Api
       # GET /api/v1/orders/:id
       # Get order details
       def show
-        order = Order.includes(order_items: { product_variant: :product }).find(params[:id])
+        order = find_order_by_id_or_number(params[:id])
         
         render json: {
           order: detailed_order_json(order)
@@ -306,28 +306,28 @@ module Api
       end
 
       def build_order(cart_items)
-        shipping_address = order_params[:shipping_address]
-        shipping_method_params = order_params[:shipping_method]
+        shipping_address = order_params[:shipping_address] || {}
+        shipping_method_params = order_params[:shipping_method] || {}
         
         order = Order.new(
           user: current_user,
           order_type: 'retail',
           status: 'pending',
-          email: order_params[:email],
-          phone: order_params[:phone],
-          name: shipping_address[:name], # Customer name (saved to customer_name via alias)
+          email: order_params[:email] || order_params[:customer_email],
+          phone: order_params[:phone] || order_params[:customer_phone],
+          name: shipping_address[:name] || order_params[:customer_name],
           
           # Shipping address
-          shipping_address_line1: shipping_address[:street1],
-          shipping_address_line2: shipping_address[:street2],
-          shipping_city: shipping_address[:city],
-          shipping_state: shipping_address[:state],
-          shipping_zip: shipping_address[:zip],
-          shipping_country: shipping_address[:country] || 'US',
+          shipping_address_line1: shipping_address[:street1] || order_params[:shipping_address_line1],
+          shipping_address_line2: shipping_address[:street2] || order_params[:shipping_address_line2],
+          shipping_city: shipping_address[:city] || order_params[:shipping_city],
+          shipping_state: shipping_address[:state] || order_params[:shipping_state],
+          shipping_zip: shipping_address[:zip] || order_params[:shipping_zip],
+          shipping_country: shipping_address[:country] || order_params[:shipping_country] || 'US',
           
           # Shipping method (store as JSON/text with carrier and service info)
-          shipping_method: "#{shipping_method_params[:carrier]} #{shipping_method_params[:service]}",
-          shipping_cost_cents: shipping_method_params[:rate_cents]
+          shipping_method: [shipping_method_params[:carrier], shipping_method_params[:service]].compact.join(' ').presence,
+          shipping_cost_cents: shipping_method_params[:rate_cents] || 0
         )
 
         # Calculate totals
@@ -476,7 +476,7 @@ module Api
           id: order.id,
           order_number: order.order_number,
           status: order.status,
-          status_display: order.status.titleize,
+          status_display: order.status&.titleize,
           payment_status: order.payment_status,
           order_type: order.order_type,
           customer_name: order.name,
@@ -486,7 +486,7 @@ module Api
           shipping_cost_cents: order.shipping_cost_cents,
           tax_cents: order.tax_cents,
           total_cents: order.total_cents,
-          total_formatted: "$#{'%.2f' % (order.total_cents / 100.0)}",
+          total_formatted: "$#{'%.2f' % ((order.total_cents || 0) / 100.0)}",
           created_at: order.created_at.iso8601,
           shipping_method: order.shipping_method,
           order_items: order.order_items.map do |item|
@@ -536,8 +536,10 @@ module Api
 
       def order_params
         params.require(:order).permit(
-          :email,
-          :phone,
+          :email, :phone,
+          :customer_name, :customer_email, :customer_phone,
+          :shipping_address_line1, :shipping_address_line2,
+          :shipping_city, :shipping_state, :shipping_zip, :shipping_country,
           shipping_address: [:name, :street1, :street2, :city, :state, :zip, :country],
           shipping_method: [:carrier, :service, :rate_cents, :rate_id],
           payment_method: [:token, :type]
@@ -569,17 +571,26 @@ module Api
         end
       end
 
+      # Support lookup by both numeric ID and order number (e.g., HAF-R-20251210-0001)
+      def find_order_by_id_or_number(id_or_number)
+        if id_or_number.to_s.match?(/\A\d+\z/)
+          Order.includes(order_items: { product_variant: :product }).find(id_or_number)
+        else
+          Order.includes(order_items: { product_variant: :product }).find_by!(order_number: id_or_number)
+        end
+      end
+
       # Simplified order JSON for customer-facing order history
       def customer_order_json(order)
         {
           id: order.id,
           order_number: order.order_number,
           status: order.status,
-          status_display: order.status.titleize,
+          status_display: order.status&.titleize,
           order_type: order.order_type,
           order_type_display: order.order_type.titleize,
           total_cents: order.total_cents,
-          total_formatted: "$#{'%.2f' % (order.total_cents / 100.0)}",
+          total_formatted: "$#{'%.2f' % ((order.total_cents || 0) / 100.0)}",
           item_count: order.order_items.sum(:quantity),
           created_at: order.created_at.iso8601,
           created_at_display: order.created_at.strftime('%B %d, %Y'),
