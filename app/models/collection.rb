@@ -16,7 +16,7 @@ class Collection < ApplicationRecord
   scope :by_position, -> { order(sort_order: :asc, name: :asc) }
 
   # Callbacks
-  before_save :generate_slug, if: -> { slug.blank? }
+  before_validation :generate_slug, if: -> { slug.blank? }
 
   # Instance methods
   def to_param
@@ -26,6 +26,7 @@ class Collection < ApplicationRecord
   private
 
   def generate_slug
-    self.slug = name.to_s.parameterize
+    sanitized_name = ActionController::Base.helpers.strip_tags(name.to_s)
+    self.slug = sanitized_name.parameterize
   end
 end
