@@ -95,11 +95,16 @@ module Api
 
           # HAF-11: Smart variant resolution - handle products with only a default variant
           variant = if item_params[:variant_id].present?
-                      fundraiser_product.product.product_variants.find_by(id: item_params[:variant_id])
+                      fundraiser_product.product.product_variants.find_by(
+                        id: item_params[:variant_id],
+                        available: true
+                      )
                     else
                       # No variant_id provided - use default or first available variant
-                      fundraiser_product.product.product_variants.find_by(is_default: true) ||
-                        fundraiser_product.product.product_variants.where(available: true).first
+                      fundraiser_product.product.product_variants.find_by(
+                        is_default: true,
+                        available: true
+                      ) || fundraiser_product.product.product_variants.where(available: true).first
                     end
           unless variant
             validation_errors << "Variant not found for #{fundraiser_product.name}"
@@ -123,8 +128,9 @@ module Api
           product = fundraiser_product.product
           case product.inventory_level
           when "variant"
-            if quantity > variant.stock_quantity
-              validation_errors << "Only #{variant.stock_quantity} of #{fundraiser_product.name} (#{variant.display_name}) available"
+            variant_stock = variant.stock_quantity.to_i
+            if quantity > variant_stock
+              validation_errors << "Only #{variant_stock} of #{fundraiser_product.name} (#{variant.display_name}) available"
               next
             end
           when "product"

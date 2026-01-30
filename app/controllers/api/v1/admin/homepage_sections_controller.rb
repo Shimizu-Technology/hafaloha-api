@@ -54,14 +54,18 @@ module Api
                           status: :unprocessable_entity
           end
 
-          ActiveRecord::Base.transaction do
-            sections_data.each do |section_data|
-              section = HomepageSection.find(section_data[:id])
-              section.update!(position: section_data[:position])
+          begin
+            ActiveRecord::Base.transaction do
+              sections_data.each do |section_data|
+                section = HomepageSection.find(section_data[:id])
+                section.update!(position: section_data[:position])
+              end
             end
-          end
 
-          render json: { success: true }
+            render json: { success: true }
+          rescue ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid => e
+            render json: { error: e.message }, status: :unprocessable_entity
+          end
         end
 
         private

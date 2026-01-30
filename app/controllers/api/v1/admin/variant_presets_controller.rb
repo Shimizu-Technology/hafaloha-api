@@ -121,7 +121,13 @@ module Api
           # Normalize values to plain hashes for JSONB storage
           if permitted[:values].present?
             permitted[:values] = permitted[:values].map do |v|
-              v.respond_to?(:to_unsafe_h) ? v.to_unsafe_h : v.to_h
+              if v.respond_to?(:to_unsafe_h)
+                v.to_unsafe_h
+              elsif v.respond_to?(:to_h)
+                v.to_h
+              else
+                v
+              end
             end
           end
 

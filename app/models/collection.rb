@@ -16,7 +16,7 @@ class Collection < ApplicationRecord
   scope :by_position, -> { order(sort_order: :asc, name: :asc) }
 
   # Callbacks
-  before_validation :generate_slug, if: -> { slug.blank? }
+  before_save :generate_slug, if: -> { slug.blank? }
 
   # Instance methods
   def to_param
