@@ -1,0 +1,24 @@
+Hafaloha - Refund Processed
+============================
+
+Hi <%= @order.name || 'there' %>,
+
+We've processed a refund for your order. Here are the details:
+
+  Order Number:  #<%= @order.order_number %>
+  Refund Amount: <%= @amount %>
+<% if @refund.reason.present? %>  Reason:        <%= @refund.reason %>
+<% end %>  Refund Date:   <%= @refund.created_at.strftime('%B %d, %Y') %>
+
+IMPORTANT: Please allow 5-10 business days for the refund to appear
+on your original payment method. Processing times may vary depending
+on your bank or card issuer.
+
+If you have any questions about this refund, please don't hesitate
+to reach out to us.
+
+Thank you for shopping with Hafaloha!
+
+---
+(c) <%= Date.today.year %> Hafaloha. All rights reserved.
+https://hafaloha.com
