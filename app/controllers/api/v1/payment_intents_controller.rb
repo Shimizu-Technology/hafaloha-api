@@ -58,12 +58,35 @@ module Api
       private
 
       def get_cart_items
+        sess_id = request.headers["X-Session-ID"] || request.cookies["session_id"]
+
         if current_user
+          # Merge any session cart items to the user (handles guest -> login flow)
+          merge_session_cart_to_user(sess_id) if sess_id.present?
           current_user.cart_items.includes(product_variant: :product)
+        elsif sess_id.present?
+          CartItem.where(session_id: sess_id).includes(product_variant: :product)
         else
-          session_id = request.headers["X-Session-ID"] || request.cookies["session_id"]
-          return [] if session_id.blank?
-          CartItem.where(session_id: session_id).includes(product_variant: :product)
+          CartItem.none
+        end
+      end
+
+      # Merge session-based cart items to the logged-in user
+      # This handles the case where a user added items before logging in
+      def merge_session_cart_to_user(session_id)
+        return unless current_user && session_id.present?
+
+        session_items = CartItem.where(session_id: session_id)
+        return if session_items.empty?
+
+        session_items.each do |session_item|
+          existing_item = current_user.cart_items.find_by(product_variant_id: session_item.product_variant_id)
+          if existing_item
+            existing_item.update(quantity: existing_item.quantity + session_item.quantity)
+            session_item.destroy
+          else
+            session_item.update(user_id: current_user.id, session_id: nil)
+          end
         end
       end
     end
