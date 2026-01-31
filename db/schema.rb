@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_25_015215) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_31_032405) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -400,6 +400,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_015215) do
     t.index ["slug"], name: "index_products_on_slug", unique: true
   end
 
+  create_table "refunds", force: :cascade do |t|
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.text "notes"
+    t.bigint "order_id", null: false
+    t.string "reason"
+    t.string "status", default: "pending"
+    t.string "stripe_refund_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["order_id"], name: "index_refunds_on_order_id"
+    t.index ["status"], name: "index_refunds_on_status"
+    t.index ["stripe_refund_id"], name: "index_refunds_on_stripe_refund_id", unique: true
+    t.index ["user_id"], name: "index_refunds_on_user_id"
+  end
+
   create_table "site_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.jsonb "fallback_shipping_rates", default: {"domestic"=>[{"rate_cents"=>800, "max_weight_oz"=>16}, {"rate_cents"=>1500, "max_weight_oz"=>48}, {"rate_cents"=>2000, "max_weight_oz"=>80}, {"rate_cents"=>3000, "max_weight_oz"=>160}, {"rate_cents"=>5000, "max_weight_oz"=>nil}], "international"=>[{"rate_cents"=>2500, "max_weight_oz"=>16}, {"rate_cents"=>4000, "max_weight_oz"=>48}, {"rate_cents"=>6000, "max_weight_oz"=>80}, {"rate_cents"=>9000, "max_weight_oz"=>160}, {"rate_cents"=>15000, "max_weight_oz"=>nil}]}, null: false
@@ -465,4 +482,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_25_015215) do
   add_foreign_key "product_collections", "products"
   add_foreign_key "product_images", "products"
   add_foreign_key "product_variants", "products"
+  add_foreign_key "refunds", "orders"
+  add_foreign_key "refunds", "users"
 end
