@@ -38,7 +38,7 @@ module Api
             params.require(:settings).permit(
               :name, :description, :base_price_cents, :image_url,
               :pickup_location, :pickup_instructions, :pickup_phone,
-              :advance_hours, :max_per_slot, :active,
+              :advance_hours, :max_per_slot, :active, :ordering_enabled,
               :placard_enabled, :placard_price_cents, :toppings_info
             )
           end
