@@ -41,6 +41,7 @@ class Order < ApplicationRecord
 
   # Callbacks
   before_validation :generate_order_number, if: -> { order_number.blank? }
+  after_update :restore_inventory_for_cancellation, if: -> { saved_change_to_status? && status == 'cancelled' }
 
   # Convenience aliases for customer fields
   def email
@@ -191,6 +192,53 @@ class Order < ApplicationRecord
   def calculate_totals!
     self.subtotal_cents = order_items.sum(:total_price_cents)
     self.total_cents = subtotal_cents + (shipping_cost_cents || 0) + (tax_cents || 0)
+  end
+
+  # Restore inventory when order is cancelled
+  # Mirrors the deduct_inventory logic in reverse
+  def restore_inventory_for_cancellation
+    order_items.includes(product_variant: :product).each do |item|
+      variant = item.product_variant
+      next unless variant # Skip if variant was deleted
+
+      product = variant.product
+
+      case product.inventory_level
+      when 'variant'
+        variant.with_lock do
+          previous_stock = variant.stock_quantity
+          new_stock = previous_stock + item.quantity
+          variant.update!(stock_quantity: new_stock)
+
+          InventoryAudit.record_order_cancelled(
+            variant: variant,
+            quantity: item.quantity,
+            order: self
+          )
+        end
+
+      when 'product'
+        product.with_lock do
+          previous_stock = product.product_stock_quantity || 0
+          new_stock = previous_stock + item.quantity
+          product.update!(product_stock_quantity: new_stock)
+
+          InventoryAudit.record_product_stock_change(
+            product: product,
+            previous_qty: previous_stock,
+            new_qty: new_stock,
+            reason: "Order ##{order_number} cancelled - stock restored",
+            audit_type: 'order_cancelled',
+            order: self
+          )
+        end
+
+      when 'none'
+        next
+      end
+    end
+
+    Rails.logger.info "Inventory restored for cancelled order ##{order_number}"
   end
 
   private
