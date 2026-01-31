@@ -156,6 +156,9 @@ Rails.application.routes.draw do
       post 'shipping/rates', to: 'shipping#calculate_rates'
       post 'shipping/validate_address', to: 'shipping#validate_address'
       
+      # Payment intents (for Stripe checkout)
+      resources :payment_intents, only: [:create]
+      
       # Config endpoint (public)
       get 'config', to: 'config#show'
       

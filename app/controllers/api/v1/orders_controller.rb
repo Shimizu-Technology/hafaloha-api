@@ -118,22 +118,47 @@ module Api
         order = build_order(cart_items)
 
         # Process payment
-        payment_result = PaymentService.process_payment(
-          amount_cents: order.total_cents,
-          payment_method: order_params[:payment_method],
-          order: order,
-          customer_email: order.email,
-          test_mode: settings.payment_test_mode
-        )
+        payment_intent_id = order_params[:payment_intent_id]
+        payment_method_params = order_params[:payment_method] || {}
+        payment_type = payment_method_params[:type]
 
-        unless payment_result[:success]
-          return render json: { error: payment_result[:error] }, status: :unprocessable_entity
+        if payment_type == 'test' && settings.payment_test_mode
+          # Test mode: simulate payment
+          payment_result = PaymentService.process_payment(
+            amount_cents: order.total_cents,
+            payment_method: payment_method_params,
+            order: order,
+            customer_email: order.email,
+            test_mode: true
+          )
+          unless payment_result[:success]
+            return render json: { error: payment_result[:error] }, status: :unprocessable_entity
+          end
+          order.payment_status = 'paid'
+          order.payment_intent_id = payment_result[:charge_id]
+        elsif payment_intent_id.present?
+          # Real Stripe payment: verify the PaymentIntent succeeded
+          verification = verify_payment_intent(payment_intent_id, order.total_cents)
+          unless verification[:success]
+            return render json: { error: verification[:error] }, status: :unprocessable_entity
+          end
+          order.payment_status = 'paid'
+          order.payment_intent_id = payment_intent_id
+        else
+          # Legacy token-based flow
+          payment_result = PaymentService.process_payment(
+            amount_cents: order.total_cents,
+            payment_method: payment_method_params,
+            order: order,
+            customer_email: order.email,
+            test_mode: settings.payment_test_mode
+          )
+          unless payment_result[:success]
+            return render json: { error: payment_result[:error] }, status: :unprocessable_entity
+          end
+          order.payment_status = 'paid'
+          order.payment_intent_id = payment_result[:charge_id]
         end
-
-        # Save order with payment info
-        # Valid payment statuses: pending, paid, failed, refunded
-        order.payment_status = 'paid'  # Both test and real payments are 'paid'
-        order.payment_intent_id = payment_result[:charge_id]
         
         Rails.logger.info "💾 Attempting to save order..."
         Rails.logger.info "   Order attributes: #{order.attributes.slice('order_type', 'status', 'email', 'phone', 'customer_name', 'shipping_city', 'shipping_state', 'payment_status').inspect}"
@@ -536,7 +561,7 @@ module Api
 
       def order_params
         params.require(:order).permit(
-          :email, :phone,
+          :email, :phone, :payment_intent_id,
           :customer_name, :customer_email, :customer_phone,
           :shipping_address_line1, :shipping_address_line2,
           :shipping_city, :shipping_state, :shipping_zip, :shipping_country,
@@ -568,6 +593,39 @@ module Api
         else
           # Generic - try USPS as default for Guam
           "https://tools.usps.com/go/TrackConfirmAction?tLabels=#{tracking}"
+        end
+      end
+
+
+      # Verify a Stripe PaymentIntent was successful
+      def verify_payment_intent(payment_intent_id, expected_amount_cents)
+        settings = SiteSetting.instance
+
+        if settings.payment_test_mode && payment_intent_id.start_with?('test_pi_')
+          # Test mode: accept test payment intents
+          return { success: true }
+        end
+
+        begin
+          intent = Stripe::PaymentIntent.retrieve(payment_intent_id)
+
+          unless intent.status == 'succeeded'
+            return { success: false, error: "Payment has not been completed (status: #{intent.status})" }
+          end
+
+          # Verify amount matches (allow small rounding differences)
+          if (intent.amount - expected_amount_cents).abs > 1
+            Rails.logger.warn "Payment amount mismatch: expected #{expected_amount_cents}, got #{intent.amount}"
+            return { success: false, error: "Payment amount does not match order total" }
+          end
+
+          { success: true }
+        rescue Stripe::InvalidRequestError => e
+          Rails.logger.error "Invalid PaymentIntent ID: #{e.message}"
+          { success: false, error: "Invalid payment reference" }
+        rescue Stripe::StripeError => e
+          Rails.logger.error "Stripe verification error: #{e.message}"
+          { success: false, error: "Payment verification failed. Please try again." }
         end
       end
 
