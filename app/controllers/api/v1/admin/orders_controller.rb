@@ -147,7 +147,7 @@ module Api
         test_mode = ENV['APP_MODE'] == 'test'
 
         # Process the refund
-        refund = PaymentService.refund_payment(
+        result = PaymentService.refund_payment(
           order: @order,
           amount_cents: amount_cents,
           reason: reason,
@@ -155,7 +155,8 @@ module Api
           test_mode: test_mode
         )
 
-        if refund.succeeded?
+        if result[:success]
+          refund = result[:refund]
           # Update payment status if fully refunded
           if @order.reload.fully_refunded?
             @order.update!(payment_status: 'refunded')
@@ -177,7 +178,7 @@ module Api
         else
           render json: {
             error: 'Refund failed',
-            details: refund.metadata&.dig('error') || 'An error occurred processing the refund'
+            details: result[:error] || 'An error occurred processing the refund'
           }, status: :unprocessable_entity
         end
       rescue StandardError => e
@@ -496,6 +497,8 @@ module Api
           end
         }
         
+        json[:total_refunded_cents] = order.total_refunded_cents
+        json[:refundable_amount_cents] = order.refundable_amount_cents
         # Add refund history
         json[:refunds] = order.refunds.recent.map { |r| refund_json(r) }
 
