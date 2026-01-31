@@ -10,6 +10,22 @@ module Api
       # POST /api/v1/shipping/rates
       # Calculate shipping rates for cart items
       def calculate_rates
+        # Validate address input before calling shipping provider
+        address = params[:address] || {}
+        missing_fields = []
+        missing_fields << 'zip' if address[:zip].blank?
+        missing_fields << 'country' if address[:country].blank?
+        missing_fields << 'city' if address[:city].blank?
+        missing_fields << 'state' if address[:state].blank?
+        missing_fields << 'street' if address[:street].blank? && address[:street1].blank?
+
+        if missing_fields.any?
+          return render json: {
+            error: "Missing required address fields: #{missing_fields.join(', ')}",
+            missing_fields: missing_fields
+          }, status: :unprocessable_entity
+        end
+
         cart_items = get_cart_items
         
         if cart_items.empty?
