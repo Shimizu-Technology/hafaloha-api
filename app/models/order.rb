@@ -3,6 +3,7 @@ class Order < ApplicationRecord
   belongs_to :fundraiser, optional: true
   belongs_to :participant, optional: true
   has_many :order_items, dependent: :destroy
+  has_many :refunds, dependent: :destroy
 
   # Valid statuses by order type:
   # Retail:    pending → processing → shipped → delivered (or cancelled)
@@ -81,7 +82,24 @@ class Order < ApplicationRecord
   end
 
   # Status helpers
-  def can_cancel?
+  # Refund helpers
+  def total_refunded_cents
+    refunds.succeeded.sum(:amount_cents)
+  end
+
+  def fully_refunded?
+    total_refunded_cents >= total_cents
+  end
+
+  def refundable_amount_cents
+    total_cents - total_refunded_cents
+  end
+
+  def can_refund?
+    payment_status == 'paid' && refundable_amount_cents > 0
+  end
+
+    def can_cancel?
     %w[pending confirmed processing ready].include?(status)
   end
 

@@ -68,6 +68,25 @@ class InventoryAudit < ApplicationRecord
     )
   end
 
+  # Create audit for order refund (stock increment)
+  def self.record_order_refunded(variant:, quantity:, order:, user: nil)
+    previous_qty = variant.stock_quantity - quantity
+    new_qty = variant.stock_quantity
+
+    create!(
+      product_variant: variant,
+      product: variant.product,
+      audit_type: 'order_refunded',
+      quantity_change: quantity,
+      previous_quantity: previous_qty,
+      new_quantity: new_qty,
+      order: order,
+      user: user,
+      reason: "Order ##{order.order_number} refunded - stock restored",
+      metadata: build_metadata(variant, order)
+    )
+  end
+
   # Create audit for manual stock adjustment by admin
   def self.record_manual_adjustment(variant:, previous_qty:, new_qty:, reason:, user:)
     quantity_change = new_qty - previous_qty

@@ -47,6 +47,27 @@ class PaymentService
     { success: false, error: "An unexpected error occurred. Please try again." }
   end
 
+  # Process a refund (real or simulated based on test_mode)
+  # @param order [Order] - The order to refund
+  # @param amount_cents [Integer] - Amount to refund in cents
+  # @param reason [String] - Reason for refund
+  # @param admin_user [User] - Admin processing the refund
+  # @param test_mode [Boolean] - Whether to simulate refund
+  # @return [Hash] - { success: boolean, refund: Refund, error: string }
+  def self.refund_payment(order:, amount_cents:, reason: nil, admin_user: nil, test_mode: false)
+    if test_mode
+      process_test_refund(order, amount_cents, reason, admin_user)
+    else
+      process_real_refund(order, amount_cents, reason, admin_user)
+    end
+  rescue Stripe::StripeError => e
+    Rails.logger.error "Stripe Refund Error: #{e.message}"
+    { success: false, error: e.message }
+  rescue StandardError => e
+    Rails.logger.error "Refund Error: #{e.class} - #{e.message}"
+    { success: false, error: "An unexpected error occurred during refund." }
+  end
+
   private
 
   # Real Stripe payment processing
@@ -132,5 +153,57 @@ class PaymentService
       payment_intent_id: "test_pi_#{SecureRandom.hex(12)}"
     }
   end
-end
 
+  def self.process_real_refund(order, amount_cents, reason, admin_user)
+    Rails.logger.info "💸 Processing Stripe refund: $#{"%.2f" % (amount_cents / 100.0)} for Order ##{order.order_number}"
+
+    refund_params = {
+      payment_intent: order.payment_intent_id,
+      amount: amount_cents,
+      reason: map_refund_reason(reason)
+    }
+
+    stripe_refund = Stripe::Refund.create(refund_params)
+
+    refund = order.refunds.create!(
+      stripe_refund_id: stripe_refund.id,
+      amount_cents: amount_cents,
+      reason: reason,
+      status: stripe_refund.status == 'succeeded' ? 'succeeded' : 'pending',
+      user: admin_user,
+      metadata: { stripe_status: stripe_refund.status }
+    )
+
+    order.update!(payment_status: 'refunded') if order.fully_refunded?
+
+    { success: true, refund: refund, stripe_refund_id: stripe_refund.id }
+  end
+
+  def self.process_test_refund(order, amount_cents, reason, admin_user)
+    Rails.logger.info "⚙️  TEST MODE: Simulating refund of $#{"%.2f" % (amount_cents / 100.0)} for Order ##{order.order_number}"
+
+    sleep(0.3)
+    fake_refund_id = "test_refund_#{SecureRandom.hex(12)}"
+
+    refund = order.refunds.create!(
+      stripe_refund_id: fake_refund_id,
+      amount_cents: amount_cents,
+      reason: reason,
+      status: 'succeeded',
+      user: admin_user,
+      metadata: { test_mode: true }
+    )
+
+    order.update!(payment_status: 'refunded') if order.fully_refunded?
+
+    { success: true, refund: refund, stripe_refund_id: fake_refund_id }
+  end
+
+  def self.map_refund_reason(reason)
+    case reason&.downcase
+    when 'duplicate' then 'duplicate'
+    when 'fraudulent' then 'fraudulent'
+    else 'requested_by_customer'
+    end
+  end
+end
