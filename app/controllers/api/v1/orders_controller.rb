@@ -3,6 +3,9 @@
 module Api
   module V1
     class OrdersController < ApplicationController
+      rescue_from ActionController::ParameterMissing do |e|
+        render json: { error: "Missing required parameter: #{e.param}. Wrap your request body in an '#{e.param}' key." }, status: :bad_request
+      end
       include Authenticatable
       skip_before_action :authenticate_request, only: [:create, :show] # Allow guest checkout and order viewing
       before_action :authenticate_optional, only: [:create, :show]
