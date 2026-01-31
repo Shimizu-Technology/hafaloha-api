@@ -23,6 +23,7 @@ Rails.application.routes.draw do
         resources :orders, only: [:index, :show, :update] do
           member do
             post :notify  # Resend notification email
+            post :refund  # Process refund
           end
         end
         

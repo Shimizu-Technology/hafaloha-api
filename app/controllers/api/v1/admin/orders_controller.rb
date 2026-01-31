@@ -7,7 +7,7 @@ module Api
       include Authenticatable
         before_action :authenticate_request
         before_action :require_admin!
-        before_action :set_order, only: [:show, :update, :notify]
+        before_action :set_order, only: [:show, :update, :notify, :refund]
 
       # GET /api/v1/admin/orders
       # List all orders (admin only)
@@ -120,16 +120,76 @@ module Api
         end
       end
 
+      # POST /api/v1/admin/orders/:id/refund
+      # Process a refund for an order
+      def refund
+        amount_cents = params[:amount_cents].to_i
+        reason = params[:reason]
 
+        # Validate amount
+        if amount_cents <= 0
+          return render json: { error: 'amount_cents must be greater than 0' }, status: :unprocessable_entity
+        end
 
+        # Validate the order can be refunded
+        unless @order.can_refund?
+          return render json: { error: 'This order cannot be refunded' }, status: :unprocessable_entity
+        end
 
+        # Validate amount doesn't exceed refundable amount
+        if amount_cents > @order.refundable_amount_cents
+          return render json: {
+            error: "Refund amount exceeds refundable amount (max: #{@order.refundable_amount_cents} cents)"
+          }, status: :unprocessable_entity
+        end
 
+        # Determine test mode
+        test_mode = ENV['APP_MODE'] == 'test'
+
+        # Process the refund
+        refund = PaymentService.refund_payment(
+          order: @order,
+          amount_cents: amount_cents,
+          reason: reason,
+          admin_user: current_user,
+          test_mode: test_mode
+        )
+
+        if refund.succeeded?
+          # Update payment status if fully refunded
+          if @order.reload.fully_refunded?
+            @order.update!(payment_status: 'refunded')
+          end
+
+          # Restore inventory for full refunds
+          if @order.fully_refunded?
+            restore_inventory_for_refund(@order, current_user)
+          end
+
+          # Send refund notification email
+          OrderMailer.refund_notification(@order, refund).deliver_later
+
+          render json: {
+            message: 'Refund processed successfully',
+            refund: refund_json(refund),
+            order: detailed_order_json(@order.reload)
+          }
+        else
+          render json: {
+            error: 'Refund failed',
+            details: refund.metadata&.dig('error') || 'An error occurred processing the refund'
+          }, status: :unprocessable_entity
+        end
+      rescue StandardError => e
+        Rails.logger.error "Refund error for order ##{@order.order_number}: #{e.message}"
+        render json: { error: "Refund failed: #{e.message}" }, status: :internal_server_error
+      end
 
 
       private
 
       def set_order
-        @order = Order.includes(:order_items, :user).find(params[:id])
+        @order = Order.includes(:order_items, :user, :refunds).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render json: { error: 'Order not found' }, status: :not_found
       end
@@ -436,6 +496,9 @@ module Api
           end
         }
         
+        # Add refund history
+        json[:refunds] = order.refunds.recent.map { |r| refund_json(r) }
+
         # Add acai-specific fields for acai orders
         if order.order_type == 'acai'
           acai_settings = AcaiSetting.instance
@@ -451,6 +514,64 @@ module Api
         end
         
         json
+      end
+
+      def refund_json(refund)
+        {
+          id: refund.id,
+          amount_cents: refund.amount_cents,
+          amount_formatted: "$#{'%.2f' % (refund.amount_cents / 100.0)}",
+          status: refund.status,
+          reason: refund.reason,
+          stripe_refund_id: refund.stripe_refund_id,
+          created_at: refund.created_at.iso8601,
+          admin_user: refund.user&.name || refund.user&.email
+        }
+      end
+
+      # Restore inventory when a full refund is processed
+      def restore_inventory_for_refund(order, user = nil)
+        order.order_items.includes(product_variant: :product).each do |item|
+          variant = item.product_variant
+          next unless variant
+
+          product = variant.product
+
+          case product.inventory_level
+          when 'variant'
+            variant.with_lock do
+              previous_stock = variant.stock_quantity
+              new_stock = previous_stock + item.quantity
+              variant.update!(stock_quantity: new_stock)
+
+              InventoryAudit.record_order_refunded(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                user: user
+              )
+            end
+
+          when 'product'
+            product.with_lock do
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = previous_stock + item.quantity
+              product.update!(product_stock_quantity: new_stock)
+
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Order #" + '#{order.order_number}' + " refunded - stock restored",
+                audit_type: 'order_refunded',
+                order: order,
+                user: user
+              )
+            end
+          end
+        end
+
+        Rails.logger.info "Inventory restored for refunded order #" + '#{order.order_number}'
       end
 
       def order_params
