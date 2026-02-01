@@ -69,6 +69,6 @@ group :development do
 end
 
 gem "jwt", "~> 2.5"
-gem "clerk-sdk-ruby", "~> 3.0"
+gem "clerk-sdk-ruby", "~> 4.2"
 
 gem "money-rails", "~> 1.15"
