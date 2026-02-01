@@ -22,8 +22,60 @@ module Api
             total_products: total_products
           }
         end
+
+        # GET /api/v1/admin/dashboard/chart_data
+        # Returns daily order counts and revenue for the last 30 days
+        def chart_data
+          days = (params[:days] || 30).to_i.clamp(7, 90)
+          start_date = days.days.ago.beginning_of_day
+
+          # Orders per day
+          orders_by_day = Order
+            .where('created_at >= ?', start_date)
+            .group("DATE(created_at)")
+            .count
+
+          # Revenue per day (paid orders only)
+          revenue_by_day = Order
+            .where('created_at >= ?', start_date)
+            .where(payment_status: 'paid')
+            .group("DATE(created_at)")
+            .sum(:total_cents)
+
+          # Build complete series (fill in zero days)
+          series = (0...days).map do |i|
+            date = (start_date + i.days).to_date
+            date_str = date.to_s
+            {
+              date: date_str,
+              label: date.strftime('%b %d'),
+              orders: orders_by_day[date] || 0,
+              revenue_cents: revenue_by_day[date] || 0
+            }
+          end
+
+          # Period comparison: this week vs last week
+          this_week_start = Time.current.beginning_of_week
+          last_week_start = 1.week.ago.beginning_of_week
+          last_week_end = this_week_start
+
+          this_week_revenue = Order.where(payment_status: 'paid')
+            .where('created_at >= ?', this_week_start).sum(:total_cents)
+          last_week_revenue = Order.where(payment_status: 'paid')
+            .where('created_at >= ? AND created_at < ?', last_week_start, last_week_end).sum(:total_cents)
+
+          this_week_orders = Order.where('created_at >= ?', this_week_start).count
+          last_week_orders = Order.where('created_at >= ? AND created_at < ?', last_week_start, last_week_end).count
+
+          render json: {
+            series: series,
+            comparison: {
+              this_week: { orders: this_week_orders, revenue_cents: this_week_revenue },
+              last_week: { orders: last_week_orders, revenue_cents: last_week_revenue }
+            }
+          }
+        end
       end
     end
   end
 end
-

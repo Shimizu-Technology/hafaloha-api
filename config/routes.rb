@@ -18,6 +18,7 @@ Rails.application.routes.draw do
       namespace :admin do
         # Dashboard
         get 'dashboard/stats', to: 'dashboard#stats'
+        get 'dashboard/chart_data', to: 'dashboard#chart_data'
         
         # Orders (admin management)
         resources :orders, only: [:index, :show, :update] do
