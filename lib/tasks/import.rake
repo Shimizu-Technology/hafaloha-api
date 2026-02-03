@@ -96,15 +96,22 @@ class ShopifyImporter
       handle = row['Handle']
       next if handle.blank?
       
-      products_data[handle] ||= { product_info: nil, variants: [], images: {} }
+      products_data[handle] ||= { product_info: nil, variants: [], images: {}, option_names: {} }
       
-      # First row for this handle = product info
+      # First row for this handle = product info + option names
       if products_data[handle][:product_info].nil?
         products_data[handle][:product_info] = extract_product_info(row)
+        # Preserve Option1 Name and Option2 Name from first row
+        # Shopify CSVs only include option names in the first row per product
+        products_data[handle][:option_names] = {
+          option1_name: row['Option1 Name'],
+          option2_name: row['Option2 Name'],
+          option3_name: row['Option3 Name']
+        }
       end
       
-      # Every row = variant
-      products_data[handle][:variants] << extract_variant_info(row)
+      # Every row = variant (use preserved option names if row is empty)
+      products_data[handle][:variants] << extract_variant_info(row, products_data[handle][:option_names])
       
       # Collect images
       if row['Image Src'].present?
@@ -139,12 +146,16 @@ class ShopifyImporter
     }
   end
 
-  def extract_variant_info(row)
+  def extract_variant_info(row, option_names = {})
+    # Use option names from first row if current row's option name is blank
+    # This fixes Shopify's CSV format where option names only appear in first row
     {
-      option1_name: row['Option1 Name'],
+      option1_name: row['Option1 Name'].presence || option_names[:option1_name],
       option1_value: row['Option1 Value'],
-      option2_name: row['Option2 Name'],
+      option2_name: row['Option2 Name'].presence || option_names[:option2_name],
       option2_value: row['Option2 Value'],
+      option3_name: row['Option3 Name'].presence || option_names[:option3_name],
+      option3_value: row['Option3 Value'],
       sku: row['Variant SKU'],
       price: row['Variant Price'].to_f,
       compare_at_price: row['Variant Compare At Price'].to_f,
