@@ -163,6 +163,9 @@ Rails.application.routes.draw do
       
       # Config endpoint (public)
       get 'config', to: 'config#show'
+
+      # Contact form (public)
+      post 'contact', to: 'contact_submissions#create'
       
       # Acai Cakes routes (public ordering)
       get 'acai/config', to: 'acai#show_config'

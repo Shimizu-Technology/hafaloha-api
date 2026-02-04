@@ -159,6 +159,43 @@ class EmailService
     end
   end
 
+  # Send contact form submission notification to admin
+  # @param submission [ContactSubmission] - The contact form submission
+  # @return [Hash] - { success: boolean, message_id: string, error: string }
+  def self.send_contact_notification(submission)
+    return { success: false, error: "Resend API key not configured" } unless ENV['RESEND_API_KEY'].present?
+
+    begin
+      # Send to site admin emails (same as order notifications)
+      settings = SiteSetting.instance
+      admin_emails = settings.order_notification_emails || ['shimizutechnology@gmail.com']
+
+      params = {
+        from: from_address,
+        to: admin_emails,
+        reply_to: submission.email,
+        subject: "📬 New Contact Form: #{submission.subject} — from #{submission.name}",
+        html: contact_notification_html(submission)
+      }
+
+      response = Resend::Emails.send(params)
+
+      Rails.logger.info "✅ Contact form notification sent (from: #{submission.email}, subject: #{submission.subject})"
+      { success: true, message_id: response["id"] }
+
+    rescue Resend::Error => e
+      if Rails.env.development? && e.message.include?("domain is not verified")
+        Rails.logger.info "ℹ️  Resend domain not verified (expected in development): #{e.message}"
+      else
+        Rails.logger.error "Resend Error sending contact notification: #{e.message}"
+      end
+      { success: false, error: e.message }
+    rescue StandardError => e
+      Rails.logger.error "Email Error: #{e.class} - #{e.message}"
+      { success: false, error: "Failed to send contact notification" }
+    end
+  end
+
   private
 
   # Configurable from address - uses RESEND_FROM_EMAIL env var
@@ -860,6 +897,98 @@ class EmailService
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Thank you for your order!</p>
                     <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | #{pickup_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    HTML
+  end
+
+  # Generate contact form notification HTML
+  def self.contact_notification_html(submission)
+    subject_labels = {
+      "general" => "General Inquiry",
+      "order" => "Order Question",
+      "shipping" => "Shipping & Delivery",
+      "returns" => "Returns & Exchanges",
+      "wholesale" => "Wholesale / Bulk Orders",
+      "other" => "Other"
+    }
+    subject_display = subject_labels[submission.subject] || submission.subject
+
+    <<~HTML
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Contact Form Submission</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 20px 0;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #1F2937 0%, #111827 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">📬 New Contact Form Message</h1>
+                  </td>
+                </tr>
+
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 30px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+                      <tr>
+                        <td style="padding: 10px 0; border-bottom: 1px solid #E5E7EB;">
+                          <strong style="color: #6B7280; font-size: 14px;">From:</strong>
+                          <span style="color: #111827; font-size: 14px; float: right;">#{submission.name}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 10px 0; border-bottom: 1px solid #E5E7EB;">
+                          <strong style="color: #6B7280; font-size: 14px;">Email:</strong>
+                          <span style="color: #111827; font-size: 14px; float: right;">
+                            <a href="mailto:#{submission.email}" style="color: #C1191F; text-decoration: none;">#{submission.email}</a>
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 10px 0; border-bottom: 1px solid #E5E7EB;">
+                          <strong style="color: #6B7280; font-size: 14px;">Subject:</strong>
+                          <span style="color: #111827; font-size: 14px; float: right;">#{subject_display}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 10px 0;">
+                          <strong style="color: #6B7280; font-size: 14px;">Date:</strong>
+                          <span style="color: #111827; font-size: 14px; float: right;">#{submission.created_at.strftime('%B %d, %Y at %I:%M %p')}</span>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="background-color: #F9FAFB; border-left: 4px solid #C1191F; padding: 20px; border-radius: 0 4px 4px 0;">
+                      <h3 style="color: #111827; margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">Message</h3>
+                      <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.8; white-space: pre-wrap;">#{submission.message}</p>
+                    </div>
+
+                    <div style="margin-top: 24px; text-align: center;">
+                      <a href="mailto:#{submission.email}?subject=Re: #{subject_display}" style="display: inline-block; background-color: #C1191F; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">Reply to #{submission.name}</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #F9FAFB; padding: 20px; text-align: center; border-top: 1px solid #E5E7EB;">
+                    <p style="color: #6B7280; margin: 0; font-size: 12px;">This message was sent via the Hafaloha website contact form.</p>
                   </td>
                 </tr>
 

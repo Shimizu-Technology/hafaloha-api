@@ -83,13 +83,15 @@ module Webhooks
         return
       end
 
-      order.update!(payment_status: "paid")
+      # Use update_column to bypass validations — webhooks should always succeed
+      # regardless of model validation state (e.g., missing optional fields).
+      order.update_column(:payment_status, "paid")
       Rails.logger.info "✅ Order ##{order.id} payment_status updated to 'paid' via Stripe webhook"
 
       # Trigger confirmation email
       SendOrderConfirmationEmailJob.perform_later(order.id)
       Rails.logger.info "📧 Order confirmation email enqueued for Order ##{order.id}"
-    rescue ActiveRecord::RecordInvalid => e
+    rescue StandardError => e
       Rails.logger.error "❌ Failed to update Order ##{order&.id}: #{e.message}"
     end
 
@@ -97,14 +99,16 @@ module Webhooks
       order = find_order_from_payment_intent(payment_intent)
       return unless order
 
-      order.update!(payment_status: "failed")
+      # Use update_column to bypass validations — webhook updates must not fail
+      # due to unrelated validation issues on the order model.
+      order.update_column(:payment_status, "failed")
       Rails.logger.error "❌ Payment failed for Order ##{order.id} (payment_intent: #{payment_intent.id})"
 
       # Log the failure reason if available
       if payment_intent.respond_to?(:last_payment_error) && payment_intent.last_payment_error
         Rails.logger.error "   Failure reason: #{payment_intent.last_payment_error.message}"
       end
-    rescue ActiveRecord::RecordInvalid => e
+    rescue StandardError => e
       Rails.logger.error "❌ Failed to update Order ##{order&.id}: #{e.message}"
     end
 
@@ -118,10 +122,11 @@ module Webhooks
         return
       end
 
-      order.update!(payment_status: "refunded")
+      # Use update_column to bypass validations — webhook updates must not fail
+      order.update_column(:payment_status, "refunded")
       Rails.logger.info "💸 Order ##{order.id} payment_status updated to 'refunded' via Stripe webhook"
       # Full refund logic (inventory restoration, email, etc.) comes in HAF-17
-    rescue ActiveRecord::RecordInvalid => e
+    rescue StandardError => e
       Rails.logger.error "❌ Failed to update Order ##{order&.id} for refund: #{e.message}"
     end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_04_083000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_04_140304) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -129,6 +129,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_04_083000) do
     t.integer "sort_order"
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_collections_on_slug", unique: true
+  end
+
+  create_table "contact_submissions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.text "message", null: false
+    t.string "name", null: false
+    t.string "status", default: "new", null: false
+    t.string "subject", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_contact_submissions_on_created_at"
+    t.index ["status"], name: "index_contact_submissions_on_status"
   end
 
   create_table "fundraiser_products", force: :cascade do |t|
