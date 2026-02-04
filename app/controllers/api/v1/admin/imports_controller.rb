@@ -6,6 +6,9 @@ module Api
         def index
           imports = current_user.admin? ? Import.all : current_user.imports
           imports = imports.recent.limit(50)
+
+          # Auto-fail stale processing imports (server restarted, job halted, etc.)
+          imports.each { |imp| imp.mark_stale_processing! }
           
           render json: {
             data: imports.map { |import| serialize_import(import) }
@@ -15,6 +18,9 @@ module Api
         # GET /api/v1/admin/imports/:id
         def show
           import = Import.find(params[:id])
+
+          # Auto-fail stale processing imports (server restarted, job halted, etc.)
+          import.mark_stale_processing!
           
           render json: {
             data: serialize_import_full(import)
@@ -77,9 +83,15 @@ module Api
             inventory_filename: import.inventory_filename,
             products_count: import.products_count,
             variants_count: import.variants_count,
+            variants_skipped_count: import.variants_skipped_count || 0,
             images_count: import.images_count,
             collections_count: import.collections_count,
             skipped_count: import.skipped_count,
+            total_products: import.total_products || 0,
+            processed_products: import.processed_products || 0,
+            progress_percent: import.progress_percent || 0,
+            current_step: import.current_step,
+            eta_seconds: import.eta_seconds,
             started_at: import.started_at,
             completed_at: import.completed_at,
             duration: import.duration,

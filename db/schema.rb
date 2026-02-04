@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_31_032405) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_04_083000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -194,17 +194,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_31_032405) do
     t.integer "collections_count", default: 0
     t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.string "current_step"
     t.text "error_messages"
     t.string "filename"
     t.integer "images_count", default: 0
     t.string "inventory_filename"
+    t.datetime "last_progress_at"
+    t.integer "processed_products", default: 0
     t.integer "products_count", default: 0
+    t.integer "progress_percent", default: 0
     t.integer "skipped_count", default: 0
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
+    t.integer "total_products", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.integer "variants_count", default: 0
+    t.integer "variants_skipped_count", default: 0
     t.text "warnings"
     t.index ["created_at"], name: "index_imports_on_created_at"
     t.index ["status"], name: "index_imports_on_status"
