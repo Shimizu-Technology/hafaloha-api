@@ -110,13 +110,6 @@ class ProcessImportJob < ApplicationJob
     if archived_product
       Rails.logger.info "📦 Found archived product, unarchiving and updating: #{first_row['Title']}"
 
-      unless has_variant_sku
-        Rails.logger.warn "⏭️  Skipping product with no variant SKUs: #{first_row['Title']}"
-        stats[:products_skipped] += 1
-        stats[:warnings] << "Skipped product (missing SKUs): #{first_row['Title']}"
-        return
-      end
-
       # Unarchive the product
       archived_product.update!(
         archived: false,
@@ -127,7 +120,9 @@ class ProcessImportJob < ApplicationJob
         weight_oz: (first_row["Variant Grams"].to_f / 28.3495).round(2),
         vendor: first_row["Vendor"],
         product_type: first_row["Type"],
-        featured: false
+        featured: false,
+        needs_attention: !has_variant_sku,
+        import_notes: has_variant_sku ? nil : "⚠️ Auto-generated SKUs — original Shopify data had no SKUs for this product. Please verify variant SKUs and update with your real naming convention."
       )
 
       # Update collections (tags + metadata)
@@ -145,13 +140,6 @@ class ProcessImportJob < ApplicationJob
 
       # Continue to variant processing below
     else
-      unless has_variant_sku
-        Rails.logger.warn "⏭️  Skipping product with no variant SKUs: #{first_row['Title']}"
-        stats[:products_skipped] += 1
-        stats[:warnings] << "Skipped product (missing SKUs): #{first_row['Title']}"
-        return
-      end
-
       # Create new product (skip auto-default variant callback during import)
       product = Product.create!(
         name: first_row["Title"],
@@ -165,7 +153,9 @@ class ProcessImportJob < ApplicationJob
         published: first_row["Status"] == "active",
         featured: false,
         inventory_level: "none", # Default to no tracking
-        product_stock_quantity: 0
+        product_stock_quantity: 0,
+        needs_attention: !has_variant_sku,
+        import_notes: has_variant_sku ? nil : "⚠️ Auto-generated SKUs — original Shopify data had no SKUs for this product. Please verify variant SKUs and update with your real naming convention."
       )
 
       # Manually remove auto-created default variant if any real variants exist in CSV
@@ -192,25 +182,29 @@ class ProcessImportJob < ApplicationJob
 
     existing_variant_skus = ProductVariant.where(sku: rows.map { |r| r["Variant SKU"] }.compact).pluck(:sku).to_set
 
+    auto_sku_counter = 0
     rows.each do |row|
-      # Track rows with missing SKUs
-      if row["Variant SKU"].blank?
-        size_info = row["Option1 Value"].presence || "unknown size"
-        skipped_for_missing_sku += 1
-        stats[:variants_skipped] += 1
-        Rails.logger.warn "⚠️  Skipped variant with missing SKU: #{product.name} - #{size_info}"
-        next
+      sku = row["Variant SKU"]
+      auto_generated = false
+
+      # Auto-generate SKU if missing (instead of skipping)
+      if sku.blank?
+        size_part = (row["Option1 Value"] || "default").upcase.gsub(/[^A-Z0-9]/, "")
+        sku = "AUTO-#{handle.upcase.gsub(/[^A-Z0-9]/, '')[0..20]}-#{size_part}-#{auto_sku_counter}"
+        auto_sku_counter += 1
+        auto_generated = true
+        Rails.logger.info "🔧 Auto-generated SKU for #{product.name} - #{row['Option1 Value']}: #{sku}"
       end
 
       # Check for existing variant
-      if existing_variant_skus.include?(row["Variant SKU"])
-        Rails.logger.info "⏭️  Skipping existing variant: #{row['Variant SKU']}"
+      if existing_variant_skus.include?(sku)
+        Rails.logger.info "⏭️  Skipping existing variant: #{sku}"
         stats[:variants_skipped] += 1
         next
       end
 
       variant = product.product_variants.create!(
-        sku: row["Variant SKU"],
+        sku: sku,
         size: row["Option1 Value"],
         color: row["Option2 Value"],
         material: row["Option3 Value"],
@@ -224,12 +218,16 @@ class ProcessImportJob < ApplicationJob
 
       variants_for_this_product += 1
       stats[:variants_created] += 1
-      existing_variant_skus.add(row["Variant SKU"])
+      existing_variant_skus.add(sku)
+
+      if auto_generated
+        skipped_for_missing_sku += 1 # Reuse counter for tracking auto-generated count
+      end
     end
 
-    # Warn if variants were skipped due to missing SKUs
+    # Warn about auto-generated SKUs
     if skipped_for_missing_sku > 0
-      stats[:warnings] << "#{product.name}: Skipped #{skipped_for_missing_sku} variant(s) with missing SKU - please add SKUs in Shopify"
+      stats[:warnings] << "#{product.name}: Auto-generated #{skipped_for_missing_sku} SKU(s) — admin should verify and update with real SKUs"
     end
 
     # Warn if product has no variants after processing (critical issue!)
