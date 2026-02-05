@@ -282,36 +282,38 @@ class ProcessImportJob < ApplicationJob
     image_urls.each_slice(5) do |batch_urls|
       threads = batch_urls.map do |url|
         Thread.new do
-          begin
-            # Download image with timeouts
-            file = URI.open(url, read_timeout: 30, open_timeout: 10)
-            filename = File.basename(URI.parse(url).path)
-            
-            # Upload to S3
-            blob = ActiveStorage::Blob.create_and_upload!(
-              io: file,
-              filename: filename,
-              content_type: file.content_type
-            )
-            
-            # Thread-safe creation of ProductImage
-            image_mutex.synchronize do
-              is_primary = product.product_images.empty?
-              product.product_images.create!(
-                s3_key: blob.key,
-                alt_text: product.name,
-                primary: is_primary,
-                position: position_counter
+          ActiveRecord::Base.connection_pool.with_connection do
+            begin
+              # Download image with timeouts
+              file = URI.open(url, read_timeout: 30, open_timeout: 10)
+              filename = File.basename(URI.parse(url).path)
+
+              # Upload to S3
+              blob = ActiveStorage::Blob.create_and_upload!(
+                io: file,
+                filename: filename,
+                content_type: file.content_type
               )
-              position_counter += 1
-              stats[:images_created] += 1
-            end
-            
-            Rails.logger.info "📷 Downloaded image: #{filename}"
-          rescue => e
-            Rails.logger.warn "⚠️  Failed to download image #{url}: #{e.message}"
-            image_mutex.synchronize do
-              stats[:warnings] << "Failed to download image: #{File.basename(url)}"
+
+              # Thread-safe creation of ProductImage
+              image_mutex.synchronize do
+                is_primary = product.product_images.empty?
+                product.product_images.create!(
+                  s3_key: blob.key,
+                  alt_text: product.name,
+                  primary: is_primary,
+                  position: position_counter
+                )
+                position_counter += 1
+                stats[:images_created] += 1
+              end
+
+              Rails.logger.info "📷 Downloaded image: #{filename}"
+            rescue => e
+              Rails.logger.warn "⚠️  Failed to download image #{url}: #{e.message}"
+              image_mutex.synchronize do
+                stats[:warnings] << "Failed to download image: #{File.basename(url)}"
+              end
             end
           end
         end
