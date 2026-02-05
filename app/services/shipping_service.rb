@@ -23,9 +23,15 @@ class ShippingService
     raise ShippingError, "No items to ship" if cart_items.blank?
     raise ShippingError, "Destination address required" if destination.blank?
 
-    # Calculate total weight
-    total_weight_oz = cart_items.sum { |item| (item.product_variant.weight_oz || 0) * item.quantity }
-    raise ShippingError, "Total weight must be greater than 0" if total_weight_oz <= 0
+    # Calculate total weight (use default 8oz per item if weight not set)
+    DEFAULT_WEIGHT_OZ = 8.0
+    total_weight_oz = cart_items.sum do |item|
+      weight = item.product_variant.weight_oz.presence || DEFAULT_WEIGHT_OZ
+      weight * item.quantity
+    end
+    
+    # Ensure minimum weight for shipping calculation
+    total_weight_oz = DEFAULT_WEIGHT_OZ if total_weight_oz <= 0
 
     # Try EasyPost first if configured
     if ENV["EASYPOST_API_KEY"].present?
