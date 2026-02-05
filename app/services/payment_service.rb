@@ -137,21 +137,42 @@ class PaymentService
     }
   end
 
-  # Test mode Payment Intent (simulated)
+  # Test mode Payment Intent
+  # When Stripe test keys are configured, we still call Stripe (which handles test mode)
+  # This allows full Stripe.js integration testing with test cards like 4242 4242 4242 4242
   def self.create_test_payment_intent(amount_cents, customer_email, order_id)
-    Rails.logger.info "⚙️  TEST MODE: Creating simulated Payment Intent"
+    Rails.logger.info "⚙️  TEST MODE: Creating Stripe Payment Intent with test keys"
     Rails.logger.info "   Amount: $#{'%.2f' % (amount_cents / 100.0)}"
     Rails.logger.info "   Customer: #{customer_email}"
     Rails.logger.info "   Order ID: #{order_id}"
 
-    # Generate fake client secret
-    client_secret = "test_secret_#{SecureRandom.hex(16)}"
+    # Check if we have Stripe keys configured
+    if ENV["STRIPE_SECRET_KEY"].present? && ENV["STRIPE_SECRET_KEY"].start_with?("sk_test_")
+      # Use real Stripe API with test keys - enables full checkout testing
+      intent = Stripe::PaymentIntent.create(
+        amount: amount_cents,
+        currency: "usd",
+        receipt_email: customer_email,
+        metadata: {
+          order_id: order_id,
+          test_mode: true
+        }
+      )
 
-    {
-      success: true,
-      client_secret: client_secret,
-      payment_intent_id: "test_pi_#{SecureRandom.hex(12)}"
-    }
+      {
+        success: true,
+        client_secret: intent.client_secret,
+        payment_intent_id: intent.id
+      }
+    else
+      # No Stripe keys - return simulated response (won't work with Stripe.js)
+      Rails.logger.warn "⚠️  No Stripe test keys configured - using simulated payment intent"
+      {
+        success: true,
+        client_secret: "test_secret_#{SecureRandom.hex(16)}",
+        payment_intent_id: "test_pi_#{SecureRandom.hex(12)}"
+      }
+    end
   end
 
   def self.process_real_refund(order, amount_cents, reason, admin_user)
