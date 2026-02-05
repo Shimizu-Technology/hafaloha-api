@@ -112,6 +112,7 @@ module Api
           name: product.name,
           slug: product.slug,
           description: product.description,
+          price_cents: product.base_price_cents,
           base_price_cents: product.base_price_cents,
           inventory_level: product.inventory_level,
           featured: product.featured,
@@ -147,7 +148,7 @@ module Api
         {
           id: participant.id,
           name: participant.name,
-          unique_code: participant.unique_code,
+          code: participant.unique_code,
           participant_number: participant.participant_number,
           display_name: participant.display_name,
           goal_amount_cents: participant.goal_amount_cents,
