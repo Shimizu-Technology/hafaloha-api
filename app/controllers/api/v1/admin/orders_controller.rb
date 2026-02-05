@@ -125,6 +125,10 @@ module Api
       def refund
         amount_cents = params[:amount_cents].to_i
         reason = params[:reason]
+        # Optional: restock specific items or all items
+        # - restock_items: true = restock all order items
+        # - restock_items: [item_id, item_id, ...] = restock specific items
+        restock_items = params[:restock_items]
 
         # Validate amount
         if amount_cents <= 0
@@ -162,9 +166,23 @@ module Api
             @order.update!(payment_status: "refunded")
           end
 
-          # Restore inventory for full refunds
+          # Restore inventory based on restock_items parameter
+          inventory_restored = false
           if @order.fully_refunded?
+            # Always restore inventory for full refunds
             restore_inventory_for_refund(@order, current_user)
+            inventory_restored = true
+          elsif restock_items.present?
+            # Partial refund with explicit restock request
+            if restock_items == true || restock_items == "true" || restock_items == "all"
+              # Restock all items
+              restore_inventory_for_refund(@order, current_user)
+              inventory_restored = true
+            elsif restock_items.is_a?(Array)
+              # Restock specific items by order_item_id
+              restore_inventory_for_items(@order, restock_items, current_user)
+              inventory_restored = true
+            end
           end
 
           # Send refund notification email
@@ -172,6 +190,7 @@ module Api
 
           render json: {
             message: "Refund processed successfully",
+            inventory_restored: inventory_restored,
             refund: refund_json(refund),
             order: detailed_order_json(@order.reload)
           }
@@ -575,6 +594,53 @@ module Api
         end
 
         Rails.logger.info "Inventory restored for refunded order #" + '#{order.order_number}'
+      end
+
+      # Restore inventory for specific order items (for partial refunds)
+      def restore_inventory_for_items(order, item_ids, user = nil)
+        items = order.order_items.where(id: item_ids).includes(product_variant: :product)
+        
+        items.each do |item|
+          variant = item.product_variant
+          next unless variant
+
+          product = variant.product
+
+          case product.inventory_level
+          when "variant"
+            variant.with_lock do
+              previous_stock = variant.stock_quantity
+              new_stock = previous_stock + item.quantity
+              variant.update!(stock_quantity: new_stock)
+
+              InventoryAudit.record_order_refunded(
+                variant: variant,
+                quantity: item.quantity,
+                order: order,
+                user: user
+              )
+            end
+
+          when "product"
+            product.with_lock do
+              previous_stock = product.product_stock_quantity || 0
+              new_stock = previous_stock + item.quantity
+              product.update!(product_stock_quantity: new_stock)
+
+              InventoryAudit.record_product_stock_change(
+                product: product,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Partial refund for Order ##{order.order_number} - stock restored",
+                audit_type: "order_refunded",
+                order: order,
+                user: user
+              )
+            end
+          end
+        end
+
+        Rails.logger.info "Inventory restored for #{items.count} items from partial refund on order ##{order.order_number}"
       end
 
       def order_params
