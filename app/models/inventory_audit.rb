@@ -9,9 +9,9 @@ class InventoryAudit < ApplicationRecord
 
   # Validations
   validates :audit_type, presence: true
-  validates :audit_type, inclusion: { 
-    in: %w[order_placed order_cancelled order_refunded restock manual_adjustment 
-           damaged import variant_created inventory_sync] 
+  validates :audit_type, inclusion: {
+    in: %w[order_placed order_cancelled order_refunded restock manual_adjustment
+           damaged import variant_created inventory_sync]
   }
   validates :quantity_change, :previous_quantity, :new_quantity, presence: true
   validate :must_have_product_or_variant
@@ -23,8 +23,8 @@ class InventoryAudit < ApplicationRecord
   scope :for_order, ->(order_id) { where(order_id: order_id) }
   scope :by_type, ->(type) { where(audit_type: type) }
   scope :by_user, ->(user_id) { where(user_id: user_id) }
-  scope :stock_increases, -> { where('quantity_change > 0') }
-  scope :stock_decreases, -> { where('quantity_change < 0') }
+  scope :stock_increases, -> { where("quantity_change > 0") }
+  scope :stock_decreases, -> { where("quantity_change < 0") }
   scope :in_date_range, ->(start_date, end_date) { where(created_at: start_date..end_date) }
 
   # ==========================================
@@ -39,7 +39,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'order_placed',
+      audit_type: "order_placed",
       quantity_change: -quantity,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -57,7 +57,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'order_cancelled',
+      audit_type: "order_cancelled",
       quantity_change: quantity,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -76,7 +76,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'order_refunded',
+      audit_type: "order_refunded",
       quantity_change: quantity,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -94,7 +94,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'manual_adjustment',
+      audit_type: "manual_adjustment",
       quantity_change: quantity_change,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -112,7 +112,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'restock',
+      audit_type: "restock",
       quantity_change: quantity_added,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -130,7 +130,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'damaged',
+      audit_type: "damaged",
       quantity_change: -quantity_damaged,
       previous_quantity: previous_qty,
       new_quantity: new_qty,
@@ -149,7 +149,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'import',
+      audit_type: "import",
       quantity_change: initial_quantity,
       previous_quantity: 0,
       new_quantity: initial_quantity,
@@ -164,7 +164,7 @@ class InventoryAudit < ApplicationRecord
     create!(
       product_variant: variant,
       product: variant.product,
-      audit_type: 'variant_created',
+      audit_type: "variant_created",
       quantity_change: initial_quantity,
       previous_quantity: 0,
       new_quantity: initial_quantity,
@@ -192,7 +192,7 @@ class InventoryAudit < ApplicationRecord
         product_id: product.id,
         product_name: product.name,
         product_sku: product.sku_prefix,
-        inventory_level: 'product'
+        inventory_level: "product"
       }
     )
   end
@@ -242,7 +242,7 @@ class InventoryAudit < ApplicationRecord
   end
 
   def user_display
-    user&.name || user&.email || 'System'
+    user&.name || user&.email || "System"
   end
 
   private
@@ -260,7 +260,7 @@ class InventoryAudit < ApplicationRecord
       variant_sku: variant.sku,
       product_id: variant.product.id,
       product_name: variant.product.name,
-      inventory_level: 'variant'
+      inventory_level: "variant"
     }
 
     if order.present?

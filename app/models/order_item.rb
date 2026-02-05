@@ -15,11 +15,11 @@ class OrderItem < ApplicationRecord
 
   # Money handling
   def unit_price
-    Money.new(unit_price_cents || 0, 'USD')
+    Money.new(unit_price_cents || 0, "USD")
   end
 
   def total_price
-    Money.new(total_price_cents || 0, 'USD')
+    Money.new(total_price_cents || 0, "USD")
   end
 
   # Display helpers

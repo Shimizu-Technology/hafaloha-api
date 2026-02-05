@@ -11,8 +11,8 @@ module Api
         # GET /api/v1/admin/dashboard/stats
         def stats
           total_orders = Order.count
-          total_revenue_cents = Order.where(payment_status: 'paid').sum(:total_cents)
-          pending_orders = Order.where(status: 'pending').count
+          total_revenue_cents = Order.where(payment_status: "paid").sum(:total_cents)
+          pending_orders = Order.where(status: "pending").count
           total_products = Product.where(published: true).count
 
           render json: {
@@ -31,14 +31,14 @@ module Api
 
           # Orders per day
           orders_by_day = Order
-            .where('created_at >= ?', start_date)
+            .where("created_at >= ?", start_date)
             .group("DATE(created_at)")
             .count
 
           # Revenue per day (paid orders only)
           revenue_by_day = Order
-            .where('created_at >= ?', start_date)
-            .where(payment_status: 'paid')
+            .where("created_at >= ?", start_date)
+            .where(payment_status: "paid")
             .group("DATE(created_at)")
             .sum(:total_cents)
 
@@ -48,7 +48,7 @@ module Api
             date_str = date.to_s
             {
               date: date_str,
-              label: date.strftime('%b %d'),
+              label: date.strftime("%b %d"),
               orders: orders_by_day[date] || 0,
               revenue_cents: revenue_by_day[date] || 0
             }
@@ -59,13 +59,13 @@ module Api
           last_week_start = 1.week.ago.beginning_of_week
           last_week_end = this_week_start
 
-          this_week_revenue = Order.where(payment_status: 'paid')
-            .where('created_at >= ?', this_week_start).sum(:total_cents)
-          last_week_revenue = Order.where(payment_status: 'paid')
-            .where('created_at >= ? AND created_at < ?', last_week_start, last_week_end).sum(:total_cents)
+          this_week_revenue = Order.where(payment_status: "paid")
+            .where("created_at >= ?", this_week_start).sum(:total_cents)
+          last_week_revenue = Order.where(payment_status: "paid")
+            .where("created_at >= ? AND created_at < ?", last_week_start, last_week_end).sum(:total_cents)
 
-          this_week_orders = Order.where('created_at >= ?', this_week_start).count
-          last_week_orders = Order.where('created_at >= ? AND created_at < ?', last_week_start, last_week_end).count
+          this_week_orders = Order.where("created_at >= ?", this_week_start).count
+          last_week_orders = Order.where("created_at >= ? AND created_at < ?", last_week_start, last_week_end).count
 
           render json: {
             series: series,

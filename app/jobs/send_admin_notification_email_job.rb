@@ -4,7 +4,7 @@ class SendAdminNotificationEmailJob < ApplicationJob
   def perform(order_id)
     order = Order.find(order_id)
     result = EmailService.send_admin_notification(order)
-    
+
     if result[:success]
       Rails.logger.info "✅ Admin notification email sent for Order ##{order.order_number}"
     else
@@ -22,4 +22,3 @@ class SendAdminNotificationEmailJob < ApplicationJob
     raise # Re-raise to allow job retry
   end
 end
-

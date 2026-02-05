@@ -4,7 +4,7 @@ module Api
       module Fundraisers
         class ParticipantsController < BaseController
           before_action :set_fundraiser
-          before_action :set_participant, only: [:show, :update, :destroy]
+          before_action :set_participant, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/fundraisers/:fundraiser_id/participants
           def index
@@ -13,20 +13,20 @@ module Api
             # Search by name or email
             if params[:search].present?
               @participants = @participants.where(
-                'name ILIKE ? OR email ILIKE ?',
+                "name ILIKE ? OR email ILIKE ?",
                 "%#{params[:search]}%", "%#{params[:search]}%"
               )
             end
 
             # Filter by active status
-            @participants = @participants.active if params[:active] == 'true'
+            @participants = @participants.active if params[:active] == "true"
 
             # Order
             @participants = @participants.order(:name)
 
             # Pagination
             page = params[:page]&.to_i || 1
-            per_page = [params[:per_page]&.to_i || 20, 100].min
+            per_page = [ params[:per_page]&.to_i || 20, 100 ].min
             total = @participants.count
             @participants = @participants.limit(per_page).offset((page - 1) * per_page)
 
@@ -69,10 +69,10 @@ module Api
           # DELETE /api/v1/admin/fundraisers/:fundraiser_id/participants/:id
           def destroy
             if @participant.orders.any?
-              render json: { error: 'Cannot delete participant with existing orders' }, status: :unprocessable_entity
+              render json: { error: "Cannot delete participant with existing orders" }, status: :unprocessable_entity
             else
               @participant.destroy
-              render json: { message: 'Participant deleted successfully' }
+              render json: { message: "Participant deleted successfully" }
             end
           end
 
@@ -113,14 +113,14 @@ module Api
           private
 
           def set_fundraiser
-            @fundraiser = Fundraiser.find_by(id: params[:fundraiser_id]) || 
+            @fundraiser = Fundraiser.find_by(id: params[:fundraiser_id]) ||
                           Fundraiser.find_by(slug: params[:fundraiser_id])
-            render json: { error: 'Fundraiser not found' }, status: :not_found unless @fundraiser
+            render json: { error: "Fundraiser not found" }, status: :not_found unless @fundraiser
           end
 
           def set_participant
             @participant = @fundraiser.participants.find_by(id: params[:id])
-            render json: { error: 'Participant not found' }, status: :not_found unless @participant
+            render json: { error: "Participant not found" }, status: :not_found unless @participant
           end
 
           def participant_params

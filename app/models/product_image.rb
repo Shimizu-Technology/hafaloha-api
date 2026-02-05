@@ -18,10 +18,10 @@ class ProductImage < ApplicationRecord
   # This URL will be valid for 1 hour (3600 seconds)
   def signed_url
     return url if s3_key.blank? # Fallback for old records with direct URLs
-    
+
     blob = ActiveStorage::Blob.find_by(key: s3_key)
     return url if blob.nil? # Fallback if blob not found
-    
+
     blob.url(expires_in: 1.hour)
   end
 

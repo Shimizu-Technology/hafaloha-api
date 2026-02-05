@@ -48,7 +48,7 @@ begin
   session_id = "test_session_#{SecureRandom.hex(8)}"
   product = Product.published.first
   variant = product.product_variants.where("stock_quantity > 0").first
-  
+
   if variant
     cart_item = CartItem.create!(
       session_id: session_id,
@@ -77,7 +77,7 @@ begin
     destination = { country: 'US', state: 'GU' }
     fallback_rates = ShippingService.calculate_fallback_rates(total_weight_oz, destination)
     fallback_rate = fallback_rates.first # Get first rate
-    
+
     puts "   ✅ Fallback shipping calculated"
     puts "      Total Weight: #{total_weight_oz} oz"
     puts "      Available Rates: #{fallback_rates.count}"
@@ -93,7 +93,7 @@ puts "5️⃣  Simulating Order Creation..."
 begin
   if defined?(cart_item) && cart_item && defined?(fallback_rate) && fallback_rate
     shipping_cost_cents = (fallback_rate[:rate] * 100).to_i
-    
+
     test_order = Order.new(
       order_type: 'retail',
       status: 'pending',
@@ -112,7 +112,7 @@ begin
       total_cents: variant.price_cents + shipping_cost_cents,
       payment_status: 'pending'
     )
-    
+
     test_order.order_items.build(
       product_variant: variant,
       product: product,
@@ -122,7 +122,7 @@ begin
       product_name: product.name,
       product_sku: variant.sku
     )
-    
+
     puts "   ✅ Test order created (not saved)"
     puts "      Subtotal: $#{'%.2f' % (test_order.subtotal_cents / 100.0)}"
     puts "      Shipping: $#{'%.2f' % (test_order.shipping_cost_cents / 100.0)}"
@@ -144,7 +144,7 @@ begin
       customer_email: test_order.email,
       test_mode: true
     )
-    
+
     if payment_result[:success]
       puts "   ✅ Test payment processed"
       puts "      Charge ID: #{payment_result[:charge_id]}"
@@ -250,4 +250,3 @@ end
 
 puts "=" * 80
 puts ""
-

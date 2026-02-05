@@ -1,7 +1,7 @@
 module Api
   module V1
     class FundraisersController < ApplicationController
-      before_action :set_fundraiser, only: [:show, :create_order]
+      before_action :set_fundraiser, only: [ :show, :create_order ]
 
       # GET /api/v1/fundraisers
       # Public list of active/published fundraisers
@@ -19,7 +19,7 @@ module Api
       # Public fundraiser detail page
       def show
         unless @fundraiser.status.in?(%w[active ended])
-          render json: { error: 'Fundraiser not available' }, status: :not_found
+          render json: { error: "Fundraiser not available" }, status: :not_found
           return
         end
 
@@ -34,7 +34,7 @@ module Api
       # Create a wholesale order for this fundraiser
       def create_order
         unless @fundraiser.active?
-          return render json: { error: 'This fundraiser is no longer accepting orders' }, status: :unprocessable_entity
+          return render json: { error: "This fundraiser is no longer accepting orders" }, status: :unprocessable_entity
         end
 
         # Validate participant
@@ -42,20 +42,20 @@ module Api
         if order_params[:participant_id].present?
           participant = @fundraiser.participants.active.find_by(id: order_params[:participant_id])
           unless participant
-            return render json: { error: 'Invalid participant selected' }, status: :unprocessable_entity
+            return render json: { error: "Invalid participant selected" }, status: :unprocessable_entity
           end
         end
 
         # Validate cart items
         cart_items = order_params[:items] || []
         if cart_items.empty?
-          return render json: { error: 'Cart is empty' }, status: :unprocessable_entity
+          return render json: { error: "Cart is empty" }, status: :unprocessable_entity
         end
 
         # Build order
         order = Order.new(
-          order_type: 'wholesale',
-          status: 'pending',
+          order_type: "wholesale",
+          status: "pending",
           fundraiser: @fundraiser,
           participant: participant,
           customer_name: order_params[:customer_name],
@@ -73,7 +73,7 @@ module Api
             shipping_city: shipping[:city],
             shipping_state: shipping[:state],
             shipping_zip: shipping[:zip],
-            shipping_country: shipping[:country] || 'US',
+            shipping_country: shipping[:country] || "US",
             shipping_method: order_params.dig(:shipping_method, :service),
             shipping_cost_cents: order_params.dig(:shipping_method, :rate_cents) || 0
           )
@@ -87,7 +87,7 @@ module Api
 
         cart_items.each do |item_params|
           fundraiser_product = @fundraiser.fundraiser_products.active.find_by(id: item_params[:fundraiser_product_id])
-          
+
           unless fundraiser_product
             validation_errors << "Product not found or unavailable"
             next
@@ -99,26 +99,26 @@ module Api
                         id: item_params[:variant_id],
                         available: true
                       )
-                    else
+          else
                       # No variant_id provided - use default or first available variant
                       fundraiser_product.product.product_variants.find_by(
                         is_default: true,
                         available: true
                       ) || fundraiser_product.product.product_variants.where(available: true).first
-                    end
+          end
           unless variant
             validation_errors << "Variant not found for #{fundraiser_product.name}"
             next
           end
 
           quantity = item_params[:quantity].to_i
-          
+
           # Validate quantity constraints
           if fundraiser_product.min_quantity && quantity < fundraiser_product.min_quantity
             validation_errors << "Minimum quantity for #{fundraiser_product.name} is #{fundraiser_product.min_quantity}"
             next
           end
-          
+
           if fundraiser_product.max_quantity && quantity > fundraiser_product.max_quantity
             validation_errors << "Maximum quantity for #{fundraiser_product.name} is #{fundraiser_product.max_quantity}"
             next
@@ -139,11 +139,11 @@ module Api
               validation_errors << "Only #{product_stock} of #{fundraiser_product.name} available"
               next
             end
-          # when "none" - no stock validation needed
+            # when "none" - no stock validation needed
           end
 
           item_total = fundraiser_product.price_cents * quantity
-          
+
           order.order_items.build(
             product_variant: variant,
             product_id: fundraiser_product.product_id,
@@ -154,12 +154,12 @@ module Api
             product_sku: variant.sku,
             variant_name: variant.display_name
           )
-          
+
           subtotal_cents += item_total
         end
 
         if validation_errors.any?
-          return render json: { error: 'Cart validation failed', issues: validation_errors }, status: :unprocessable_entity
+          return render json: { error: "Cart validation failed", issues: validation_errors }, status: :unprocessable_entity
         end
 
         order.subtotal_cents = subtotal_cents
@@ -180,34 +180,34 @@ module Api
           return render json: { error: payment_result[:error] }, status: :unprocessable_entity
         end
 
-        order.payment_status = 'paid'
+        order.payment_status = "paid"
         order.payment_intent_id = payment_result[:charge_id]
 
         if order.save
           # Deduct inventory and create audit trail
           deduct_inventory(order.order_items, order)
-          
+
           # Update fundraiser raised amount
           @fundraiser.update_raised_amount!
-          
+
           # Send emails
-          if settings.send_emails_for?('wholesale')
+          if settings.send_emails_for?("wholesale")
             SendOrderConfirmationEmailJob.perform_later(order.id)
           end
           SendAdminNotificationEmailJob.perform_later(order.id)
-          
+
           render json: {
             success: true,
             order: serialize_order(order),
             thank_you_message: @fundraiser.thank_you_message
           }, status: :created
         else
-          render json: { error: 'Failed to create order', errors: order.errors.full_messages }, status: :unprocessable_entity
+          render json: { error: "Failed to create order", errors: order.errors.full_messages }, status: :unprocessable_entity
         end
       rescue StandardError => e
         Rails.logger.error "Fundraiser order error: #{e.class} - #{e.message}"
         Rails.logger.error e.backtrace.first(5).join("\n")
-        render json: { error: 'Failed to create order. Please try again.' }, status: :internal_server_error
+        render json: { error: "Failed to create order. Please try again." }, status: :internal_server_error
       end
 
       private
@@ -216,14 +216,14 @@ module Api
         order_items.each do |item|
           variant = item.product_variant
           product = variant.product
-          
+
           case product.inventory_level
-          when 'variant'
+          when "variant"
             variant.with_lock do
               previous_stock = variant.stock_quantity
-              new_stock = [previous_stock - item.quantity, 0].max
+              new_stock = [ previous_stock - item.quantity, 0 ].max
               variant.update!(stock_quantity: new_stock)
-              
+
               # Create audit record inside the lock for atomicity
               InventoryAudit.record_order_placed(
                 variant: variant,
@@ -232,19 +232,19 @@ module Api
                 previous_qty: previous_stock
               )
             end
-          when 'product'
+          when "product"
             product.with_lock do
               previous_stock = product.product_stock_quantity || 0
-              new_stock = [previous_stock - item.quantity, 0].max
+              new_stock = [ previous_stock - item.quantity, 0 ].max
               product.update!(product_stock_quantity: new_stock)
-              
+
               # Create audit record for product-level tracking
               InventoryAudit.record_product_stock_change(
                 product: product,
                 previous_qty: previous_stock,
                 new_qty: new_stock,
                 reason: "Fundraiser order ##{order.order_number} placed",
-                audit_type: 'order_placed',
+                audit_type: "order_placed",
                 order: order
               )
             end
@@ -259,10 +259,10 @@ module Api
           :customer_email,
           :customer_phone,
           :notes,
-          shipping_address: [:street1, :street2, :city, :state, :zip, :country],
-          shipping_method: [:service, :rate_cents],
-          payment_method: [:token, :type],
-          items: [:fundraiser_product_id, :variant_id, :quantity]
+          shipping_address: [ :street1, :street2, :city, :state, :zip, :country ],
+          shipping_method: [ :service, :rate_cents ],
+          payment_method: [ :token, :type ],
+          items: [ :fundraiser_product_id, :variant_id, :quantity ]
         )
       end
 
@@ -290,10 +290,10 @@ module Api
       def set_fundraiser
         @fundraiser = Fundraiser.includes(
           :participants,
-          fundraiser_products: { product: [:product_images, :product_variants] }
+          fundraiser_products: { product: [ :product_images, :product_variants ] }
         ).find_by(slug: params[:id]) || Fundraiser.find_by(id: params[:id])
 
-        render json: { error: 'Fundraiser not found' }, status: :not_found unless @fundraiser
+        render json: { error: "Fundraiser not found" }, status: :not_found unless @fundraiser
       end
 
       def serialize_fundraiser_public(fundraiser)

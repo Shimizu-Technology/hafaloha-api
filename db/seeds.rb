@@ -1,6 +1,6 @@
 # db/seeds.rb
 # Seed file for Hafaloha wholesale platform
-# 
+#
 # This file creates the minimum required data:
 # - Admin user
 # - Site settings with real Hafaloha configuration
@@ -36,10 +36,10 @@ if settings.store_email.blank?
     store_name: "Hafaloha",
     store_email: "sales@hafaloha.com",
     store_phone: "+1 (671) 989-3444",
-    
+
     # Order Notifications (admin emails to receive order alerts)
-    order_notification_emails: ["shimizutechnology@gmail.com"],
-    
+    order_notification_emails: [ "shimizutechnology@gmail.com" ],
+
     # Shipping Origin (for rate calculations)
     shipping_origin_address: {
       company: "Hafaloha",
@@ -51,12 +51,12 @@ if settings.store_email.blank?
       country: "US",
       phone: "+1 (671) 989-3444"
     },
-    
+
     # Payment Settings
     # NOTE: Set payment_test_mode to false when ready for real payments
     payment_test_mode: Rails.env.production? ? false : true,
     payment_processor: "stripe",
-    
+
     # Email Settings
     # NOTE: Set send_customer_emails to true once domain is verified
     send_customer_emails: false

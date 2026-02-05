@@ -89,12 +89,12 @@ begin
   product_count = Product.count
   collection_count = Collection.count
   variant_count = ProductVariant.count
-  
+
   puts "   ✅ Users: #{user_count} (Admins: #{User.where(role: 'admin').count})"
   puts "   ✅ Products: #{product_count} (Published: #{Product.where(published: true).where(deleted_at: nil).count rescue product_count})"
   puts "   ✅ Collections: #{collection_count}"
   puts "   ✅ Product Variants: #{variant_count}"
-  
+
   if product_count == 0
     warnings << "No products found. Run test_admin_api.rb to create sample data."
   end
@@ -176,4 +176,3 @@ if warnings.include?("No products found. Run test_admin_api.rb to create sample 
   puts "   bin/rails runner scripts/test_admin_api.rb"
   puts ""
 end
-

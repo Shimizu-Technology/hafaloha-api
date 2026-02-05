@@ -13,7 +13,7 @@ class VariantPreset < ApplicationRecord
   before_validation :set_default_position, on: :create
 
   # Instance methods
-  
+
   # Returns values with indifferent access for easier hash key access
   def values_with_defaults
     return [] if values.blank?
@@ -43,7 +43,7 @@ class VariantPreset < ApplicationRecord
 
   def values_must_be_array_of_hashes
     return if values.blank?
-    
+
     unless values.is_a?(Array)
       errors.add(:values, "must be an array")
       return
@@ -54,7 +54,7 @@ class VariantPreset < ApplicationRecord
         errors.add(:values, "item at index #{index} must be a hash")
         next
       end
-      
+
       unless value["name"].present? || value[:name].present?
         errors.add(:values, "item at index #{index} must have a name")
       end

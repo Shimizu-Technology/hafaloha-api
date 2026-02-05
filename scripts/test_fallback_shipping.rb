@@ -59,19 +59,19 @@ test_cases = [
   { weight_oz: 8, qty: 1, dest: { country: "US", state: "CA" }, label: "1 light item to California" },
   { weight_oz: 8, qty: 3, dest: { country: "US", state: "NY" }, label: "3 light items to New York" },
   { weight_oz: 8, qty: 10, dest: { country: "US", state: "HI" }, label: "10 items to Hawaii" },
-  { weight_oz: 8, qty: 1, dest: { country: "JP", state: "" }, label: "1 item to Japan" },
+  { weight_oz: 8, qty: 1, dest: { country: "JP", state: "" }, label: "1 item to Japan" }
 ]
 
 test_cases.each_with_index do |test_case, i|
   puts "\n#{i + 1}. Testing: #{test_case[:label]}"
-  
+
   # Set variant weight
   variant.update_column(:weight_oz, test_case[:weight_oz])
-  
-  cart_items = [DummyCartItem.new(variant, test_case[:qty])]
+
+  cart_items = [ DummyCartItem.new(variant, test_case[:qty]) ]
   total_weight = test_case[:weight_oz] * test_case[:qty]
   total_weight_lb = total_weight / 16.0
-  
+
   destination = {
     street1: "123 Test St",
     city: "Test City",
@@ -81,17 +81,17 @@ test_cases.each_with_index do |test_case, i|
     name: "Test User",
     phone: "555-0100"
   }
-  
+
   begin
     # Temporarily unset EasyPost key to force fallback
     original_key = ENV['EASYPOST_API_KEY']
     ENV['EASYPOST_API_KEY'] = nil
-    
+
     rates = ShippingService.calculate_rates(cart_items, destination)
-    
+
     # Restore key
     ENV['EASYPOST_API_KEY'] = original_key
-    
+
     puts "  Total weight: #{total_weight_lb.round(2)} lbs (#{total_weight} oz)"
     puts "  Destination: #{test_case[:dest][:country]}"
     puts "  Rate: $#{'%.2f' % rates.first[:rate]}"
@@ -116,4 +116,3 @@ puts "  ✅ Site always works, even if EasyPost is down"
 puts "  ✅ Reasonable rates based on weight"
 puts "  ✅ No customer sees an error"
 puts "  ✅ Logs warning so you know to check EasyPost"
-

@@ -2,7 +2,7 @@ module Api
   module V1
     module Admin
       class FundraisersController < BaseController
-        before_action :set_fundraiser, only: [:show, :update, :destroy]
+        before_action :set_fundraiser, only: [ :show, :update, :destroy ]
 
         # GET /api/v1/admin/fundraisers
         def index
@@ -13,7 +13,7 @@ module Api
 
           # Search by name
           if params[:search].present?
-            @fundraisers = @fundraisers.where('name ILIKE ?', "%#{params[:search]}%")
+            @fundraisers = @fundraisers.where("name ILIKE ?", "%#{params[:search]}%")
           end
 
           # Order
@@ -21,7 +21,7 @@ module Api
 
           # Pagination
           page = params[:page]&.to_i || 1
-          per_page = [params[:per_page]&.to_i || 20, 50].min
+          per_page = [ params[:per_page]&.to_i || 20, 50 ].min
           total = @fundraisers.count
           @fundraisers = @fundraisers.limit(per_page).offset((page - 1) * per_page)
 
@@ -43,7 +43,7 @@ module Api
         # POST /api/v1/admin/fundraisers
         def create
           @fundraiser = Fundraiser.new(fundraiser_params)
-          @fundraiser.status ||= 'draft'
+          @fundraiser.status ||= "draft"
 
           if @fundraiser.save
             render json: { fundraiser: serialize_fundraiser_full(@fundraiser) }, status: :created
@@ -64,10 +64,10 @@ module Api
         # DELETE /api/v1/admin/fundraisers/:id
         def destroy
           if @fundraiser.orders.any?
-            render json: { error: 'Cannot delete fundraiser with existing orders' }, status: :unprocessable_entity
+            render json: { error: "Cannot delete fundraiser with existing orders" }, status: :unprocessable_entity
           else
             @fundraiser.destroy
-            render json: { message: 'Fundraiser deleted successfully' }
+            render json: { message: "Fundraiser deleted successfully" }
           end
         end
 
@@ -75,7 +75,7 @@ module Api
 
         def set_fundraiser
           @fundraiser = Fundraiser.find_by(id: params[:id]) || Fundraiser.find_by(slug: params[:id])
-          render json: { error: 'Fundraiser not found' }, status: :not_found unless @fundraiser
+          render json: { error: "Fundraiser not found" }, status: :not_found unless @fundraiser
         end
 
         def fundraiser_params

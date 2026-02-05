@@ -29,28 +29,28 @@ cart_item = CartItem.includes(product_variant: :product).first
 
 unless cart_item
   puts "❌ No cart items found. Adding sample items..."
-  
+
   # Find or create a product
   product = Product.find_by(slug: "hafaloha-championship-t-shirt")
-  
+
   unless product
     puts "❌ No products found. Please run: bin/rails db:seed"
     exit 1
   end
-  
+
   variant = product.product_variants.first
-  
+
   unless variant
     puts "❌ No variants found for product"
     exit 1
   end
-  
+
   # Make sure variant has weight
   if variant.weight_oz.nil? || variant.weight_oz <= 0
     puts "⚠️  Variant has no weight, setting to 8oz..."
     variant.update!(weight_oz: 8)
   end
-  
+
   # Create a test cart item with a session ID
   session_id = "test_shipping_#{SecureRandom.hex(8)}"
   cart_item = CartItem.create!(
@@ -58,7 +58,7 @@ unless cart_item
     product_variant: variant,
     quantity: 2
   )
-  
+
   puts "✅ Created test cart item (session: #{session_id})"
 end
 
@@ -96,16 +96,16 @@ test_addresses.each_with_index do |address, index|
   puts "================================================================================"
   puts "TEST #{index + 1}: Calculating rates for #{address[:name]}"
   puts "================================================================================"
-  
+
   begin
     rates = ShippingService.calculate_rates(cart_items, address)
-    
+
     if rates.empty?
       puts "⚠️  No shipping rates available"
     else
       puts "✅ Found #{rates.count} shipping option(s):"
       puts ""
-      
+
       rates.each_with_index do |rate, i|
         puts "#{i + 1}. #{rate[:carrier]} - #{rate[:service]}"
         puts "   Price: #{rate[:rate_formatted]}"
@@ -113,21 +113,21 @@ test_addresses.each_with_index do |address, index|
         puts "   Est. Delivery Date: #{rate[:delivery_date] || 'N/A'}"
         puts ""
       end
-      
+
       cheapest = rates.min_by { |r| r[:rate_cents] }
       fastest = rates.min_by { |r| r[:delivery_days] || 99 }
-      
+
       puts "💰 Cheapest: #{cheapest[:carrier]} #{cheapest[:service]} - #{cheapest[:rate_formatted]}"
       puts "⚡ Fastest: #{fastest[:carrier]} #{fastest[:service]} - #{fastest[:delivery_days]} days"
     end
-    
+
   rescue ShippingService::ShippingError => e
     puts "❌ Shipping Error: #{e.message}"
   rescue StandardError => e
     puts "❌ Unexpected Error: #{e.class} - #{e.message}"
     puts e.backtrace.first(5).join("\n")
   end
-  
+
   puts ""
 end
 
@@ -146,7 +146,7 @@ test_validation_address = {
 
 begin
   validated = ShippingService.validate_address(test_validation_address)
-  
+
   if validated[:verified]
     puts "✅ Address verified successfully"
     puts "   Street: #{validated[:street1]}"
@@ -173,4 +173,3 @@ puts "1. Review the shipping rates above"
 puts "2. Update warehouse address in app/services/shipping_service.rb"
 puts "3. Build frontend checkout UI with shipping address form"
 puts "4. Test with real addresses"
-

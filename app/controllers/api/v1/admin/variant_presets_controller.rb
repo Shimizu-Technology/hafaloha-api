@@ -4,7 +4,7 @@ module Api
       class VariantPresetsController < ApplicationController
         include Authenticatable
         before_action :require_admin!
-        before_action :set_preset, only: [:show, :update, :destroy, :duplicate]
+        before_action :set_preset, only: [ :show, :update, :destroy, :duplicate ]
 
         # GET /api/v1/admin/variant_presets
         def index
@@ -44,7 +44,7 @@ module Api
           else
             render json: {
               success: false,
-              error: preset.errors.full_messages.join(', ')
+              error: preset.errors.full_messages.join(", ")
             }, status: :unprocessable_entity
           end
         end
@@ -60,7 +60,7 @@ module Api
           else
             render json: {
               success: false,
-              error: @preset.errors.full_messages.join(', ')
+              error: @preset.errors.full_messages.join(", ")
             }, status: :unprocessable_entity
           end
         end
@@ -79,7 +79,7 @@ module Api
         # POST /api/v1/admin/variant_presets/:id/duplicate
         def duplicate
           new_name = params[:name] || "#{@preset.name} (Copy)"
-          
+
           # Check for duplicate name
           if VariantPreset.exists?(name: new_name)
             suffix = 1
@@ -115,7 +115,7 @@ module Api
             :description,
             :option_type,
             :position,
-            values: [:name, :price_adjustment_cents]
+            values: [ :name, :price_adjustment_cents ]
           )
 
           # Normalize values to plain hashes for JSONB storage

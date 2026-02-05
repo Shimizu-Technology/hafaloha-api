@@ -13,8 +13,8 @@ class CreateFundraiserProducts < ActiveRecord::Migration[8.1]
     end
 
     # Prevent duplicate product entries per fundraiser
-    add_index :fundraiser_products, [:fundraiser_id, :product_id], unique: true
-    add_index :fundraiser_products, [:fundraiser_id, :active]
-    add_index :fundraiser_products, [:fundraiser_id, :position]
+    add_index :fundraiser_products, [ :fundraiser_id, :product_id ], unique: true
+    add_index :fundraiser_products, [ :fundraiser_id, :active ]
+    add_index :fundraiser_products, [ :fundraiser_id, :position ]
   end
 end

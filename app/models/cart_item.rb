@@ -16,27 +16,27 @@ class CartItem < ApplicationRecord
   # Check if item is still available (respects inventory_level)
   def available?
     product = product_variant.product
-    
+
     # If no inventory tracking, always available
-    return true if product.inventory_level == 'none'
-    
+    return true if product.inventory_level == "none"
+
     # Otherwise check actual availability
-    product_variant.actually_available? && 
-      (product.inventory_level == 'product' ? 
-        product.product_stock_quantity >= quantity : 
+    product_variant.actually_available? &&
+      (product.inventory_level == "product" ?
+        product.product_stock_quantity >= quantity :
         product_variant.stock_quantity >= quantity)
   end
 
   # Get available quantity for this item (respects inventory_level)
   def available_quantity
     product = product_variant.product
-    
+
     case product.inventory_level
-    when 'none'
+    when "none"
       999 # High number for "unlimited"
-    when 'product'
+    when "product"
       product.product_stock_quantity || 0
-    when 'variant'
+    when "variant"
       product_variant.stock_quantity
     else
       0
@@ -46,19 +46,19 @@ class CartItem < ApplicationRecord
   # Check if quantity needs to be reduced (respects inventory_level)
   def quantity_exceeds_stock?
     product = product_variant.product
-    
-    return false if product.inventory_level == 'none'
-    
+
+    return false if product.inventory_level == "none"
+
     quantity > available_quantity
   end
 
   # Get max quantity user can have (respects inventory_level)
   def max_available_quantity
     product = product_variant.product
-    
-    return 999 if product.inventory_level == 'none'
-    
-    [quantity, available_quantity].min
+
+    return 999 if product.inventory_level == "none"
+
+    [ quantity, available_quantity ].min
   end
 
   # Calculate subtotal for this cart item
@@ -67,7 +67,7 @@ class CartItem < ApplicationRecord
   end
 
   def subtotal
-    Money.new(subtotal_cents, 'USD')
+    Money.new(subtotal_cents, "USD")
   end
 
   # Get product info (for convenience)
@@ -87,4 +87,3 @@ class CartItem < ApplicationRecord
     self.quantity = 1 if quantity.nil? || quantity < 1
   end
 end
-

@@ -7,7 +7,7 @@ module Api
         include Authenticatable
         before_action :authenticate_request
         before_action :require_admin!
-        before_action :set_user, only: [:show, :update]
+        before_action :set_user, only: [ :show, :update ]
 
         # GET /api/v1/admin/users
         def index
@@ -16,12 +16,12 @@ module Api
           # Search by email or name
           if params[:search].present?
             search_term = "%#{params[:search].downcase}%"
-            users = users.where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?", 
+            users = users.where("LOWER(email) LIKE ? OR LOWER(name) LIKE ?",
                                search_term, search_term)
           end
 
           # Filter by role
-          if params[:role].present? && params[:role] != 'all'
+          if params[:role].present? && params[:role] != "all"
             users = users.where(role: params[:role])
           end
 
@@ -43,17 +43,17 @@ module Api
         # PATCH /api/v1/admin/users/:id
         def update
           # Prevent removing your own admin access
-          if @user.id == current_user.id && params[:user][:role] == 'customer'
+          if @user.id == current_user.id && params[:user][:role] == "customer"
             return render json: { error: "You cannot remove your own admin access" }, status: :unprocessable_entity
           end
 
           if @user.update(user_params)
-            render json: { 
+            render json: {
               user: user_json(@user),
               message: "User updated successfully"
             }
           else
-            render json: { error: @user.errors.full_messages.join(', ') }, status: :unprocessable_entity
+            render json: { error: @user.errors.full_messages.join(", ") }, status: :unprocessable_entity
           end
         end
 
@@ -62,7 +62,7 @@ module Api
         def set_user
           @user = User.find(params[:id])
         rescue ActiveRecord::RecordNotFound
-          render json: { error: 'User not found' }, status: :not_found
+          render json: { error: "User not found" }, status: :not_found
         end
 
         def user_params

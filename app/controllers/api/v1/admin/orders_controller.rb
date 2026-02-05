@@ -7,7 +7,7 @@ module Api
       include Authenticatable
         before_action :authenticate_request
         before_action :require_admin!
-        before_action :set_order, only: [:show, :update, :notify, :refund]
+        before_action :set_order, only: [ :show, :update, :notify, :refund ]
 
       # GET /api/v1/admin/orders
       # List all orders (admin only)
@@ -15,23 +15,23 @@ module Api
         # Pagination
         page = (params[:page] || 1).to_i
         per_page = (params[:per_page] || 25).to_i
-        
+
         # Base query
         orders_query = Order.includes(:order_items, :user).order(created_at: :desc)
-        
+
         # Filters
         if params[:status].present?
           orders_query = orders_query.where(status: params[:status])
         end
-        
+
         if params[:payment_status].present?
           orders_query = orders_query.where(payment_status: params[:payment_status])
         end
-        
+
         if params[:order_type].present?
           orders_query = orders_query.where(order_type: params[:order_type])
         end
-        
+
         # Search by order number, email, or name (case-insensitive for PostgreSQL)
         if params[:search].present?
           search_term = "%#{params[:search]}%"
@@ -40,20 +40,20 @@ module Api
             search_term, search_term, search_term
           )
         end
-        
+
         # Date range filter
         if params[:start_date].present?
           orders_query = orders_query.where("created_at >= ?", params[:start_date])
         end
-        
+
         if params[:end_date].present?
           orders_query = orders_query.where("created_at <= ?", params[:end_date])
         end
-        
+
         # Paginate
         total_count = orders_query.count
         orders = orders_query.offset((page - 1) * per_page).limit(per_page)
-        
+
         render json: {
           orders: orders.map { |order| order_json(order) },
           pagination: {
@@ -75,29 +75,29 @@ module Api
       # Update order (status, tracking, notes)
       def update
         old_status = @order.status
-        
+
         if @order.update(order_update_params)
           # Handle status changes
           if @order.saved_change_to_status?
             case @order.status
-            when 'shipped'
+            when "shipped"
               # Send shipping notification with tracking
               SendOrderShippedEmailJob.perform_later(@order.id) if @order.tracking_number.present?
-            when 'ready'
+            when "ready"
               # Send ready for pickup notification
               SendOrderReadyEmailJob.perform_later(@order.id)
-            when 'cancelled'
+            when "cancelled"
               # Restore inventory when order is cancelled
               restore_inventory(@order, current_user)
             end
           end
-          
-          render json: { 
+
+          render json: {
             order: detailed_order_json(@order),
-            message: 'Order updated successfully'
+            message: "Order updated successfully"
           }
         else
-          render json: { error: @order.errors.full_messages.join(', ') }, status: :unprocessable_entity
+          render json: { error: @order.errors.full_messages.join(", ") }, status: :unprocessable_entity
         end
       end
 
@@ -105,16 +105,16 @@ module Api
       # Resend notification email to customer
       def notify
         case @order.status
-        when 'shipped'
+        when "shipped"
           if @order.tracking_number.present?
             SendOrderShippedEmailJob.perform_later(@order.id)
-            render json: { message: 'Shipping notification sent to customer' }
+            render json: { message: "Shipping notification sent to customer" }
           else
-            render json: { error: 'Order has no tracking number' }, status: :unprocessable_entity
+            render json: { error: "Order has no tracking number" }, status: :unprocessable_entity
           end
-        when 'ready'
+        when "ready"
           SendOrderReadyEmailJob.perform_later(@order.id)
-          render json: { message: 'Ready for pickup notification sent to customer' }
+          render json: { message: "Ready for pickup notification sent to customer" }
         else
           render json: { error: "Cannot send notification for orders with status '#{@order.status}'" }, status: :unprocessable_entity
         end
@@ -128,12 +128,12 @@ module Api
 
         # Validate amount
         if amount_cents <= 0
-          return render json: { error: 'amount_cents must be greater than 0' }, status: :unprocessable_entity
+          return render json: { error: "amount_cents must be greater than 0" }, status: :unprocessable_entity
         end
 
         # Validate the order can be refunded
         unless @order.can_refund?
-          return render json: { error: 'This order cannot be refunded' }, status: :unprocessable_entity
+          return render json: { error: "This order cannot be refunded" }, status: :unprocessable_entity
         end
 
         # Validate amount doesn't exceed refundable amount
@@ -144,7 +144,7 @@ module Api
         end
 
         # Determine test mode
-        test_mode = ENV['APP_MODE'] == 'test'
+        test_mode = ENV["APP_MODE"] == "test"
 
         # Process the refund
         result = PaymentService.refund_payment(
@@ -159,7 +159,7 @@ module Api
           refund = result[:refund]
           # Update payment status if fully refunded
           if @order.reload.fully_refunded?
-            @order.update!(payment_status: 'refunded')
+            @order.update!(payment_status: "refunded")
           end
 
           # Restore inventory for full refunds
@@ -171,14 +171,14 @@ module Api
           EmailService.send_refund_notification(@order, refund.amount_cents, refund.reason)
 
           render json: {
-            message: 'Refund processed successfully',
+            message: "Refund processed successfully",
             refund: refund_json(refund),
             order: detailed_order_json(@order.reload)
           }
         else
           render json: {
-            error: 'Refund failed',
-            details: result[:error] || 'An error occurred processing the refund'
+            error: "Refund failed",
+            details: result[:error] || "An error occurred processing the refund"
           }, status: :unprocessable_entity
         end
       rescue StandardError => e
@@ -192,7 +192,7 @@ module Api
       def set_order
         @order = Order.includes(:order_items, :user, :refunds).find(params[:id])
       rescue ActiveRecord::RecordNotFound
-        render json: { error: 'Order not found' }, status: :not_found
+        render json: { error: "Order not found" }, status: :not_found
       end
 
       def get_cart_items
@@ -201,7 +201,7 @@ module Api
           merge_session_cart_to_user
           current_user.cart_items.includes(product_variant: { product: :product_images })
         else
-          session_id = request.headers['X-Session-ID'] || cookies[:session_id]
+          session_id = request.headers["X-Session-ID"] || cookies[:session_id]
           return [] if session_id.blank?
           CartItem.where(session_id: session_id).includes(product_variant: { product: :product_images })
         end
@@ -209,15 +209,15 @@ module Api
 
       # Merge session-based cart items to the logged-in user
       def merge_session_cart_to_user
-        session_id = request.headers['X-Session-ID'] || request.cookies['session_id']
+        session_id = request.headers["X-Session-ID"] || request.cookies["session_id"]
         return unless current_user && session_id.present?
-        
+
         session_items = CartItem.where(session_id: session_id)
         return if session_items.empty?
-        
+
         session_items.each do |session_item|
           existing_item = current_user.cart_items.find_by(product_variant_id: session_item.product_variant_id)
-          
+
           if existing_item
             existing_item.update(quantity: existing_item.quantity + session_item.quantity)
             session_item.destroy
@@ -229,7 +229,7 @@ module Api
 
       def validate_cart_items(cart_items)
         issues = []
-        
+
         cart_items.each do |item|
           variant = item.product_variant
           product = variant.product
@@ -250,35 +250,35 @@ module Api
       def build_order(cart_items)
         shipping_address = order_params[:shipping_address] || {}
         shipping_method_params = order_params[:shipping_method] || {}
-        
+
         order = Order.new(
           user: current_user,
-          order_type: 'retail',
-          status: 'pending',
+          order_type: "retail",
+          status: "pending",
           email: order_params[:email] || order_params[:customer_email],
           phone: order_params[:phone] || order_params[:customer_phone],
           name: shipping_address[:name] || order_params[:customer_name],
-          
+
           # Shipping address
           shipping_address_line1: shipping_address[:street1] || order_params[:shipping_address_line1],
           shipping_address_line2: shipping_address[:street2] || order_params[:shipping_address_line2],
           shipping_city: shipping_address[:city] || order_params[:shipping_city],
           shipping_state: shipping_address[:state] || order_params[:shipping_state],
           shipping_zip: shipping_address[:zip] || order_params[:shipping_zip],
-          shipping_country: shipping_address[:country] || order_params[:shipping_country] || 'US',
-          
+          shipping_country: shipping_address[:country] || order_params[:shipping_country] || "US",
+
           # Shipping method (store as JSON/text with carrier and service info)
-          shipping_method: [shipping_method_params[:carrier], shipping_method_params[:service]].compact.join(' ').presence,
+          shipping_method: [ shipping_method_params[:carrier], shipping_method_params[:service] ].compact.join(" ").presence,
           shipping_cost_cents: shipping_method_params[:rate_cents] || 0
         )
 
         # Calculate totals
         subtotal_cents = 0
-        
+
         cart_items.each do |cart_item|
           item_price = cart_item.product_variant.price_cents
           item_total = item_price * cart_item.quantity
-          
+
           order.order_items.build(
             product_variant: cart_item.product_variant,
             product_id: cart_item.product.id,
@@ -289,14 +289,14 @@ module Api
             product_sku: cart_item.product_variant.sku,
             variant_name: cart_item.product_variant.display_name
           )
-          
+
           subtotal_cents += item_total
         end
 
         order.subtotal_cents = subtotal_cents
         order.tax_cents = 0 # TODO: Calculate tax if needed
         order.total_cents = order.subtotal_cents + order.shipping_cost_cents + order.tax_cents
-        
+
         order
       end
 
@@ -304,9 +304,9 @@ module Api
         cart_items.each do |item|
           variant = item.product_variant
           product = variant.product
-          
+
           case product.inventory_level
-          when 'variant'
+          when "variant"
             # Use row locking to prevent race conditions
             variant.with_lock do
               previous_stock = variant.stock_quantity
@@ -315,7 +315,7 @@ module Api
                 raise StandardError, "Not enough stock for #{variant.sku}"
               end
               variant.update!(stock_quantity: new_stock)
-              
+
               # Create audit record inside the lock for atomicity
               InventoryAudit.record_order_placed(
                 variant: variant,
@@ -324,8 +324,8 @@ module Api
                 previous_qty: previous_stock
               )
             end
-            
-          when 'product'
+
+          when "product"
             # Decrement product-level stock with audit trail
             product.with_lock do
               previous_stock = product.product_stock_quantity || 0
@@ -334,19 +334,19 @@ module Api
                 raise StandardError, "Not enough stock for #{product.name}"
               end
               product.update!(product_stock_quantity: new_stock)
-              
+
               # Create audit record for product-level tracking
               InventoryAudit.record_product_stock_change(
                 product: product,
                 previous_qty: previous_stock,
                 new_qty: new_stock,
                 reason: "Order ##{order.order_number} placed",
-                audit_type: 'order_placed',
+                audit_type: "order_placed",
                 order: order
               )
             end
-            
-          when 'none'
+
+          when "none"
             # Do nothing - not tracking inventory
             next
           end
@@ -362,16 +362,16 @@ module Api
         order.order_items.includes(product_variant: :product).each do |item|
           variant = item.product_variant
           next unless variant # Skip if variant was deleted
-          
+
           product = variant.product
-          
+
           case product.inventory_level
-          when 'variant'
+          when "variant"
             variant.with_lock do
               previous_stock = variant.stock_quantity
               new_stock = previous_stock + item.quantity
               variant.update!(stock_quantity: new_stock)
-              
+
               # Create audit record for cancellation
               InventoryAudit.record_order_cancelled(
                 variant: variant,
@@ -380,27 +380,27 @@ module Api
                 user: user
               )
             end
-            
-          when 'product'
+
+          when "product"
             product.with_lock do
               previous_stock = product.product_stock_quantity || 0
               new_stock = previous_stock + item.quantity
               product.update!(product_stock_quantity: new_stock)
-              
+
               # Create audit record for product-level tracking
               InventoryAudit.record_product_stock_change(
                 product: product,
                 previous_qty: previous_stock,
                 new_qty: new_stock,
                 reason: "Order ##{order.order_number} cancelled - stock restored",
-                audit_type: 'order_cancelled',
+                audit_type: "order_cancelled",
                 order: order,
                 user: user
               )
             end
           end
         end
-        
+
         Rails.logger.info "📦 Inventory restored for cancelled order ##{order.order_number}"
       end
 
@@ -439,9 +439,9 @@ module Api
             }
           end
         }
-        
+
         # Add acai-specific fields for acai orders
-        if order.order_type == 'acai'
+        if order.order_type == "acai"
           settings = AcaiSetting.instance
           json.merge!(
             acai_pickup_date: order.acai_pickup_date&.to_s,
@@ -453,7 +453,7 @@ module Api
             pickup_phone: settings.pickup_phone
           )
         end
-        
+
         json
       end
 
@@ -496,14 +496,14 @@ module Api
             }
           end
         }
-        
+
         json[:total_refunded_cents] = order.total_refunded_cents
         json[:refundable_amount_cents] = order.refundable_amount_cents
         # Add refund history
         json[:refunds] = order.refunds.recent.map { |r| refund_json(r) }
 
         # Add acai-specific fields for acai orders
-        if order.order_type == 'acai'
+        if order.order_type == "acai"
           acai_settings = AcaiSetting.instance
           json.merge!(
             acai_pickup_date: order.acai_pickup_date&.to_s,
@@ -515,7 +515,7 @@ module Api
             pickup_phone: acai_settings.pickup_phone
           )
         end
-        
+
         json
       end
 
@@ -541,7 +541,7 @@ module Api
           product = variant.product
 
           case product.inventory_level
-          when 'variant'
+          when "variant"
             variant.with_lock do
               previous_stock = variant.stock_quantity
               new_stock = previous_stock + item.quantity
@@ -555,7 +555,7 @@ module Api
               )
             end
 
-          when 'product'
+          when "product"
             product.with_lock do
               previous_stock = product.product_stock_quantity || 0
               new_stock = previous_stock + item.quantity
@@ -566,7 +566,7 @@ module Api
                 previous_qty: previous_stock,
                 new_qty: new_stock,
                 reason: "Order #" + '#{order.order_number}' + " refunded - stock restored",
-                audit_type: 'order_refunded',
+                audit_type: "order_refunded",
                 order: order,
                 user: user
               )
@@ -583,17 +583,16 @@ module Api
           :customer_name, :customer_email, :customer_phone,
           :shipping_address_line1, :shipping_address_line2,
           :shipping_city, :shipping_state, :shipping_zip, :shipping_country,
-          shipping_address: [:name, :street1, :street2, :city, :state, :zip, :country],
-          shipping_method: [:carrier, :service, :rate_cents, :rate_id],
-          payment_method: [:token, :type]
+          shipping_address: [ :name, :street1, :street2, :city, :state, :zip, :country ],
+          shipping_method: [ :carrier, :service, :rate_cents, :rate_id ],
+          payment_method: [ :token, :type ]
         )
       end
 
       def order_update_params
         params.require(:order).permit(:status, :admin_notes, :tracking_number)
       end
-      end
+    end
     end
   end
 end
-

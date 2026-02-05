@@ -4,16 +4,16 @@ module Api
       module Fundraisers
         class ProductsController < BaseController
           before_action :set_fundraiser
-          before_action :set_fundraiser_product, only: [:show, :update, :destroy]
+          before_action :set_fundraiser_product, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/fundraisers/:fundraiser_id/products
           def index
             @fundraiser_products = @fundraiser.fundraiser_products
-                                              .includes(product: [:product_images, :product_variants])
+                                              .includes(product: [ :product_images, :product_variants ])
                                               .by_position
 
             # Filter by active status
-            @fundraiser_products = @fundraiser_products.active if params[:active] == 'true'
+            @fundraiser_products = @fundraiser_products.active if params[:active] == "true"
 
             render json: {
               products: @fundraiser_products.map { |fp| serialize_fundraiser_product(fp) }
@@ -59,25 +59,25 @@ module Api
           # DELETE /api/v1/admin/fundraisers/:fundraiser_id/products/:id
           def destroy
             @fundraiser_product.destroy
-            render json: { message: 'Product removed from fundraiser' }
+            render json: { message: "Product removed from fundraiser" }
           end
 
           # POST /api/v1/admin/fundraisers/:fundraiser_id/products/reorder
           def reorder
             product_ids = params[:product_ids] || []
-            
+
             product_ids.each_with_index do |id, index|
               @fundraiser.fundraiser_products.where(id: id).update_all(position: index)
             end
 
-            render json: { message: 'Products reordered successfully' }
+            render json: { message: "Products reordered successfully" }
           end
 
           # GET /api/v1/admin/fundraisers/:fundraiser_id/products/available
           # Returns products NOT yet added to this fundraiser
           def available
             existing_product_ids = @fundraiser.fundraiser_products.pluck(:product_id)
-            
+
             @products = Product.published.active
                                .where.not(id: existing_product_ids)
                                .includes(:product_images)
@@ -85,12 +85,12 @@ module Api
 
             # Search
             if params[:search].present?
-              @products = @products.where('name ILIKE ?', "%#{params[:search]}%")
+              @products = @products.where("name ILIKE ?", "%#{params[:search]}%")
             end
 
             # Pagination
             page = params[:page]&.to_i || 1
-            per_page = [params[:per_page]&.to_i || 20, 50].min
+            per_page = [ params[:per_page]&.to_i || 20, 50 ].min
             total = @products.count
             @products = @products.limit(per_page).offset((page - 1) * per_page)
 
@@ -107,16 +107,16 @@ module Api
           private
 
           def set_fundraiser
-            @fundraiser = Fundraiser.find_by(id: params[:fundraiser_id]) || 
+            @fundraiser = Fundraiser.find_by(id: params[:fundraiser_id]) ||
                           Fundraiser.find_by(slug: params[:fundraiser_id])
-            render json: { error: 'Fundraiser not found' }, status: :not_found unless @fundraiser
+            render json: { error: "Fundraiser not found" }, status: :not_found unless @fundraiser
           end
 
           def set_fundraiser_product
             @fundraiser_product = @fundraiser.fundraiser_products
-                                             .includes(product: [:product_images, :product_variants])
+                                             .includes(product: [ :product_images, :product_variants ])
                                              .find_by(id: params[:id])
-            render json: { error: 'Product not found in fundraiser' }, status: :not_found unless @fundraiser_product
+            render json: { error: "Product not found in fundraiser" }, status: :not_found unless @fundraiser_product
           end
 
           def fundraiser_product_params

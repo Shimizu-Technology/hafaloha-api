@@ -18,4 +18,3 @@ class AddFallbackShippingRatesToSiteSettings < ActiveRecord::Migration[8.1]
     }, null: false
   end
 end
-

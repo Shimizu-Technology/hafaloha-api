@@ -88,7 +88,7 @@ puts "=" * 80
 issues = []
 cart_items.each do |item|
   v = item.product_variant
-  
+
   if !v.product.published?
     issues << "#{v.product.name} (#{v.display_name}) is no longer available"
   elsif !v.in_stock?
@@ -150,4 +150,3 @@ puts "  PUT    /api/v1/cart/items/:id - Update item quantity"
 puts "  DELETE /api/v1/cart/items/:id - Remove item"
 puts "  DELETE /api/v1/cart           - Clear cart"
 puts "  POST   /api/v1/cart/validate  - Validate cart (race condition check)"
-

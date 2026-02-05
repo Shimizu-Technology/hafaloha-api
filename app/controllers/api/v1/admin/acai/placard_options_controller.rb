@@ -5,7 +5,7 @@ module Api
     module Admin
       module Acai
         class PlacardOptionsController < Admin::BaseController
-          before_action :set_placard_option, only: [:show, :update, :destroy]
+          before_action :set_placard_option, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/acai/placard_options
           def index
@@ -33,7 +33,7 @@ module Api
               render json: {
                 success: true,
                 data: option_json(@placard_option),
-                message: 'Placard option created successfully'
+                message: "Placard option created successfully"
               }, status: :created
             else
               render json: {
@@ -49,7 +49,7 @@ module Api
               render json: {
                 success: true,
                 data: option_json(@placard_option),
-                message: 'Placard option updated successfully'
+                message: "Placard option updated successfully"
               }
             else
               render json: {
@@ -64,7 +64,7 @@ module Api
             @placard_option.destroy
             render json: {
               success: true,
-              message: 'Placard option deleted successfully'
+              message: "Placard option deleted successfully"
             }
           end
 

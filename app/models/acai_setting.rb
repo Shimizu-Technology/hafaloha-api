@@ -13,20 +13,20 @@ class AcaiSetting < ApplicationRecord
       name: 'Açaí Cake (10")',
       description: "Our signature 10-inch Açaí Cake made with fresh, island-inspired flavors.\n\nChoose from Set A or Set B toppings. Pick-up available Monday - Saturday.",
       base_price_cents: 6200,
-      pickup_location: '121 E. Marine Corps Dr, Suite 1-103 & 1-104, Hagåtña, Guam 96910',
-      pickup_phone: '671-472-7733',
+      pickup_location: "121 E. Marine Corps Dr, Suite 1-103 & 1-104, Hag\u00E5t\u00F1a, Guam 96910",
+      pickup_phone: "671-472-7733",
       advance_hours: 48,
       max_per_slot: 5,
       active: true,
       placard_enabled: true,
       placard_price_cents: 0,
-      toppings_info: 'Set A: Blueberry, Banana, Strawberry | Set B: Coconut, Mango, Strawberry'
+      toppings_info: "Set A: Blueberry, Banana, Strawberry | Set B: Coconut, Mango, Strawberry"
     )
   end
 
   # Price helpers
   def base_price
-    Money.new(base_price_cents, 'USD')
+    Money.new(base_price_cents, "USD")
   end
 
   def base_price=(amount)
@@ -38,7 +38,7 @@ class AcaiSetting < ApplicationRecord
   end
 
   def placard_price
-    Money.new(placard_price_cents, 'USD')
+    Money.new(placard_price_cents, "USD")
   end
 
   # Check if ordering is currently enabled
@@ -64,7 +64,7 @@ class AcaiSetting < ApplicationRecord
     return false unless window
 
     # Check if time slot falls within window
-    slot_start = Time.parse(time_slot.split('-').first.strip)
+    slot_start = Time.parse(time_slot.split("-").first.strip)
     return false unless slot_in_window?(slot_start, window)
 
     # Check if slot is blocked
@@ -74,9 +74,9 @@ class AcaiSetting < ApplicationRecord
     current_orders = Order.acai
                           .where(acai_pickup_date: date)
                           .where(acai_pickup_time: time_slot)
-                          .where.not(status: 'cancelled')
+                          .where.not(status: "cancelled")
                           .count
-    
+
     current_orders < max_per_slot
   end
 

@@ -5,7 +5,7 @@ module Api
     module Admin
       module Acai
         class PickupWindowsController < Admin::BaseController
-          before_action :set_pickup_window, only: [:show, :update, :destroy]
+          before_action :set_pickup_window, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/acai/pickup_windows
           def index
@@ -32,7 +32,7 @@ module Api
               render json: {
                 success: true,
                 data: window_json(@pickup_window),
-                message: 'Pickup window created successfully'
+                message: "Pickup window created successfully"
               }, status: :created
             else
               render json: {
@@ -48,7 +48,7 @@ module Api
               render json: {
                 success: true,
                 data: window_json(@pickup_window),
-                message: 'Pickup window updated successfully'
+                message: "Pickup window updated successfully"
               }
             else
               render json: {
@@ -63,7 +63,7 @@ module Api
             @pickup_window.destroy
             render json: {
               success: true,
-              message: 'Pickup window deleted successfully'
+              message: "Pickup window deleted successfully"
             }
           end
 

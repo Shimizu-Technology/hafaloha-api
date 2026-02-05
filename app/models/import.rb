@@ -1,16 +1,16 @@
 class Import < ApplicationRecord
   belongs_to :user
-  
+
   # Status: pending, processing, completed, failed
   validates :status, presence: true, inclusion: { in: %w[pending processing completed failed] }
-  
+
   scope :recent, -> { order(created_at: :desc) }
-  scope :completed, -> { where(status: 'completed') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :completed, -> { where(status: "completed") }
+  scope :failed, -> { where(status: "failed") }
   scope :in_progress, -> { where(status: %w[pending processing]) }
-  
+
   def processing!
-    update!(status: 'processing', started_at: Time.current)
+    update!(status: "processing", started_at: Time.current)
   end
 
   def update_progress(processed:, total:, step: nil)
@@ -23,17 +23,17 @@ class Import < ApplicationRecord
       last_progress_at: Time.current
     )
   end
-  
+
   def complete!(stats)
     # Prepend created products to warnings for visibility
     warnings_array = stats[:warnings] || []
     if stats[:created_products]&.any?
       created_list = stats[:created_products].map { |name| "✅ Created: #{name}" }
-      warnings_array = created_list + [''] + warnings_array # Add blank line separator
+      warnings_array = created_list + [ "" ] + warnings_array # Add blank line separator
     end
-    
+
     update!(
-      status: 'completed',
+      status: "completed",
       completed_at: Time.current,
       products_count: stats[:products_created],
       variants_count: stats[:variants_created],
@@ -44,21 +44,21 @@ class Import < ApplicationRecord
       warnings: warnings_array.join("\n"),
       processed_products: total_products.to_i.positive? ? total_products : (stats[:products_created].to_i + stats[:products_skipped].to_i),
       progress_percent: 100,
-      current_step: 'Completed'
+      current_step: "Completed"
     )
   end
-  
+
   def fail!(error_message)
     update!(
-      status: 'failed',
+      status: "failed",
       completed_at: Time.current,
       error_messages: error_message,
-      current_step: 'Failed'
+      current_step: "Failed"
     )
   end
 
   def stale_processing?(timeout_minutes = 30)
-    return false unless status == 'processing'
+    return false unless status == "processing"
     return false unless started_at
 
     last_progress = last_progress_at || started_at
@@ -68,10 +68,10 @@ class Import < ApplicationRecord
   def mark_stale_processing!(timeout_minutes = 30)
     return false unless stale_processing?(timeout_minutes)
 
-    fail!('Import stopped before completion. Please re-run the import.')
+    fail!("Import stopped before completion. Please re-run the import.")
     true
   end
-  
+
   def duration
     return nil unless started_at && completed_at
     (completed_at - started_at).round(2)
@@ -86,12 +86,12 @@ class Import < ApplicationRecord
     return 0 if remaining <= 0
     (remaining / rate).round
   end
-  
+
   def in_progress?
     %w[pending processing].include?(status)
   end
-  
+
   def success?
-    status == 'completed'
+    status == "completed"
   end
 end

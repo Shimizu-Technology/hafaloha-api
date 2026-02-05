@@ -5,7 +5,7 @@ module Api
     module Admin
       module Acai
         class BlockedSlotsController < Admin::BaseController
-          before_action :set_blocked_slot, only: [:show, :update, :destroy]
+          before_action :set_blocked_slot, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/acai/blocked_slots
           def index
@@ -32,7 +32,7 @@ module Api
               render json: {
                 success: true,
                 data: slot_json(@blocked_slot),
-                message: 'Blocked slot created successfully'
+                message: "Blocked slot created successfully"
               }, status: :created
             else
               render json: {
@@ -48,7 +48,7 @@ module Api
               render json: {
                 success: true,
                 data: slot_json(@blocked_slot),
-                message: 'Blocked slot updated successfully'
+                message: "Blocked slot updated successfully"
               }
             else
               render json: {
@@ -63,7 +63,7 @@ module Api
             @blocked_slot.destroy
             render json: {
               success: true,
-              message: 'Blocked slot deleted successfully'
+              message: "Blocked slot deleted successfully"
             }
           end
 

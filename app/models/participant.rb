@@ -25,6 +25,6 @@ class Participant < ApplicationRecord
   end
 
   def total_raised
-    Money.new(total_raised_cents, 'USD')
+    Money.new(total_raised_cents, "USD")
   end
 end

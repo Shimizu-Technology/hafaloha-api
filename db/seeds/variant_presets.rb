@@ -103,7 +103,7 @@ presets_data = [
 presets_data.each do |preset_data|
   preset = VariantPreset.find_or_initialize_by(name: preset_data[:name])
   preset.assign_attributes(preset_data)
-  
+
   if preset.new_record?
     preset.save!
     puts "  ✓ Created: #{preset.name} (#{preset.values.length} values)"
