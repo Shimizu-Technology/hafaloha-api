@@ -41,6 +41,7 @@ gem "stripe"                       # Payment processing
 gem "easypost"                     # Shipping rates & labels
 gem "resend"                       # Transactional emails
 gem "httparty"                     # HTTP requests (for image downloads, ClickSend)
+gem "rack-attack"                  # Rate limiting for API endpoints
 
 # Background jobs (using Solid Queue - already included in Rails 8)
 
