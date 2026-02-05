@@ -154,6 +154,7 @@ module Api
       def serialize_variant(variant)
         {
           id: variant.id,
+          options: variant.options,
           size: variant.size,
           color: variant.color,
           material: variant.material,
