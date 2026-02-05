@@ -13,21 +13,21 @@ class User < ApplicationRecord
   has_many :orders, dependent: :nullify  # Keep orders but remove user association on delete
 
   # Scopes
-  scope :admins, -> { where(role: 'admin') }
-  scope :customers, -> { where(role: 'customer') }
+  scope :admins, -> { where(role: "admin") }
+  scope :customers, -> { where(role: "customer") }
 
   # Role helpers
   def admin?
-    role == 'admin'
+    role == "admin"
   end
 
   def customer?
-    role == 'customer'
+    role == "customer"
   end
 
   private
 
   def set_default_role
-    self.role ||= 'customer'
+    self.role ||= "customer"
   end
 end

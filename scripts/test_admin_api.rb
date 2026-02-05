@@ -43,8 +43,8 @@ puts ""
 
 # Test 4: Create variants
 puts "TEST 4: Creating product variants..."
-sizes = ['Small', 'Medium', 'Large', 'X-Large']
-colors = ['Red', 'Black', 'White']
+sizes = [ 'Small', 'Medium', 'Large', 'X-Large' ]
+colors = [ 'Red', 'Black', 'White' ]
 variant_count = 0
 
 sizes.each do |size|
@@ -120,7 +120,7 @@ cap_collection = Collection.create!(
 
 product2.collections << cap_collection
 
-['Red', 'Black', 'Navy'].each do |color|
+[ 'Red', 'Black', 'Navy' ].each do |color|
   product2.product_variants.create!(
     color: color,
     size: 'One Size',

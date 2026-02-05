@@ -29,7 +29,7 @@ module Api
           if settings.update(site_settings_params)
             Rails.logger.info "✅ Site settings updated by #{current_user.email}: #{settings.changes.inspect}"
             render json: {
-              message: 'Settings updated successfully',
+              message: "Settings updated successfully",
               payment_test_mode: settings.payment_test_mode,
               payment_processor: settings.payment_processor,
               store_name: settings.store_name,
@@ -43,7 +43,7 @@ module Api
           end
         rescue StandardError => e
           Rails.logger.error "❌ Error updating site settings: #{e.message}"
-          render json: { error: 'Failed to update settings' }, status: :internal_server_error
+          render json: { error: "Failed to update settings" }, status: :internal_server_error
         end
 
         private
@@ -65,4 +65,3 @@ module Api
     end
   end
 end
-

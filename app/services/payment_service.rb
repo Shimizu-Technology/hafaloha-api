@@ -76,7 +76,7 @@ class PaymentService
 
     charge = Stripe::Charge.create(
       amount: amount_cents,
-      currency: 'usd',
+      currency: "usd",
       source: payment_method[:token],
       description: "Order ##{order.id} - Hafaloha",
       receipt_email: customer_email,
@@ -89,7 +89,7 @@ class PaymentService
     {
       success: true,
       charge_id: charge.id,
-      payment_method: 'stripe',
+      payment_method: "stripe",
       card_last4: charge.source&.last4,
       card_brand: charge.source&.brand
     }
@@ -111,9 +111,9 @@ class PaymentService
     {
       success: true,
       charge_id: charge_id,
-      payment_method: 'test',
-      card_last4: '4242',
-      card_brand: 'Visa (Test)'
+      payment_method: "test",
+      card_last4: "4242",
+      card_brand: "Visa (Test)"
     }
   end
 
@@ -123,7 +123,7 @@ class PaymentService
 
     intent = Stripe::PaymentIntent.create(
       amount: amount_cents,
-      currency: 'usd',
+      currency: "usd",
       receipt_email: customer_email,
       metadata: {
         order_id: order_id
@@ -169,12 +169,12 @@ class PaymentService
       stripe_refund_id: stripe_refund.id,
       amount_cents: amount_cents,
       reason: reason,
-      status: stripe_refund.status == 'succeeded' ? 'succeeded' : 'pending',
+      status: stripe_refund.status == "succeeded" ? "succeeded" : "pending",
       user: admin_user,
       metadata: { stripe_status: stripe_refund.status }
     )
 
-    order.update!(payment_status: 'refunded') if order.fully_refunded?
+    order.update!(payment_status: "refunded") if order.fully_refunded?
 
     { success: true, refund: refund, stripe_refund_id: stripe_refund.id }
   end
@@ -189,21 +189,21 @@ class PaymentService
       stripe_refund_id: fake_refund_id,
       amount_cents: amount_cents,
       reason: reason,
-      status: 'succeeded',
+      status: "succeeded",
       user: admin_user,
       metadata: { test_mode: true }
     )
 
-    order.update!(payment_status: 'refunded') if order.fully_refunded?
+    order.update!(payment_status: "refunded") if order.fully_refunded?
 
     { success: true, refund: refund, stripe_refund_id: fake_refund_id }
   end
 
   def self.map_refund_reason(reason)
     case reason&.downcase
-    when 'duplicate' then 'duplicate'
-    when 'fraudulent' then 'fraudulent'
-    else 'requested_by_customer'
+    when "duplicate" then "duplicate"
+    when "fraudulent" then "fraudulent"
+    else "requested_by_customer"
     end
   end
 end

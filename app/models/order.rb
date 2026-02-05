@@ -25,24 +25,24 @@ class Order < ApplicationRecord
   validates :customer_email, format: { with: URI::MailTo::EMAIL_REGEXP, message: "is not a valid email address" }, allow_blank: true
 
   # Scopes
-  scope :retail, -> { where(order_type: 'retail') }
-  scope :wholesale, -> { where(order_type: 'wholesale') }
-  scope :acai, -> { where(order_type: 'acai') }
-  scope :pending, -> { where(status: 'pending') }
-  scope :confirmed, -> { where(status: 'confirmed') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :ready, -> { where(status: 'ready') }
-  scope :shipped, -> { where(status: 'shipped') }
-  scope :picked_up, -> { where(status: 'picked_up') }
-  scope :delivered, -> { where(status: 'delivered') }
-  scope :cancelled, -> { where(status: 'cancelled') }
-  scope :paid, -> { where(payment_status: 'paid') }
+  scope :retail, -> { where(order_type: "retail") }
+  scope :wholesale, -> { where(order_type: "wholesale") }
+  scope :acai, -> { where(order_type: "acai") }
+  scope :pending, -> { where(status: "pending") }
+  scope :confirmed, -> { where(status: "confirmed") }
+  scope :processing, -> { where(status: "processing") }
+  scope :ready, -> { where(status: "ready") }
+  scope :shipped, -> { where(status: "shipped") }
+  scope :picked_up, -> { where(status: "picked_up") }
+  scope :delivered, -> { where(status: "delivered") }
+  scope :cancelled, -> { where(status: "cancelled") }
+  scope :paid, -> { where(payment_status: "paid") }
   scope :recent, -> { order(created_at: :desc) }
-  scope :active, -> { where.not(status: 'cancelled') }
+  scope :active, -> { where.not(status: "cancelled") }
 
   # Callbacks
   before_validation :generate_order_number, if: -> { order_number.blank? }
-  after_update :restore_inventory_for_cancellation, if: -> { saved_change_to_status? && status == 'cancelled' }
+  after_update :restore_inventory_for_cancellation, if: -> { saved_change_to_status? && status == "cancelled" }
 
   # Convenience aliases for customer fields
   def email
@@ -71,19 +71,19 @@ class Order < ApplicationRecord
 
   # Money handling
   def subtotal
-    Money.new(subtotal_cents || 0, 'USD')
+    Money.new(subtotal_cents || 0, "USD")
   end
 
   def shipping_cost
-    Money.new(shipping_cost_cents || 0, 'USD')
+    Money.new(shipping_cost_cents || 0, "USD")
   end
 
   def tax
-    Money.new(tax_cents || 0, 'USD')
+    Money.new(tax_cents || 0, "USD")
   end
 
   def total
-    Money.new(total_cents || 0, 'USD')
+    Money.new(total_cents || 0, "USD")
   end
 
   # Status helpers
@@ -101,7 +101,7 @@ class Order < ApplicationRecord
   end
 
   def can_refund?
-    payment_status == 'paid' && refundable_amount_cents > 0
+    payment_status == "paid" && refundable_amount_cents > 0
   end
 
     def can_cancel?
@@ -109,39 +109,39 @@ class Order < ApplicationRecord
   end
 
   def can_ship?
-    status == 'processing' && payment_status == 'paid'
+    status == "processing" && payment_status == "paid"
   end
 
   def can_mark_ready?
-    (acai? || wholesale?) && status == 'confirmed' && payment_status == 'paid'
+    (acai? || wholesale?) && status == "confirmed" && payment_status == "paid"
   end
 
   def is_paid?
-    payment_status == 'paid'
+    payment_status == "paid"
   end
 
   def is_complete?
     status.in?(%w[delivered picked_up])
   end
-  
+
   def is_pickup_order?
     acai? || wholesale?
   end
-  
+
   # Get valid next statuses based on order type and current status
   def next_status_options
     if retail?
       case status
-      when 'pending' then ['processing', 'cancelled']
-      when 'processing' then ['shipped', 'cancelled']
-      when 'shipped' then ['delivered']
+      when "pending" then [ "processing", "cancelled" ]
+      when "processing" then [ "shipped", "cancelled" ]
+      when "shipped" then [ "delivered" ]
       else []
       end
     else
       case status
-      when 'pending' then ['confirmed', 'cancelled']
-      when 'confirmed' then ['ready', 'cancelled']
-      when 'ready' then ['picked_up']
+      when "pending" then [ "confirmed", "cancelled" ]
+      when "confirmed" then [ "ready", "cancelled" ]
+      when "ready" then [ "picked_up" ]
       else []
       end
     end
@@ -149,15 +149,15 @@ class Order < ApplicationRecord
 
   # Type helpers
   def retail?
-    order_type == 'retail'
+    order_type == "retail"
   end
 
   def wholesale?
-    order_type == 'wholesale'
+    order_type == "wholesale"
   end
 
   def acai?
-    order_type == 'acai'
+    order_type == "acai"
   end
 
   def requires_shipping?
@@ -167,24 +167,24 @@ class Order < ApplicationRecord
   # Shipping address helper
   def shipping_address
     return nil unless requires_shipping?
-    
+
     {
       line1: shipping_address_line1,
       line2: shipping_address_line2,
       city: shipping_city,
       state: shipping_state,
       zip: shipping_zip,
-      country: shipping_country || 'US'
+      country: shipping_country || "US"
     }
   end
 
   def full_shipping_address
     return nil unless requires_shipping?
-    
+
     [
       shipping_address_line1,
       shipping_address_line2,
-      [shipping_city, shipping_state, shipping_zip].compact.join(', '),
+      [ shipping_city, shipping_state, shipping_zip ].compact.join(", "),
       shipping_country
     ].compact.join("\n")
   end
@@ -205,7 +205,7 @@ class Order < ApplicationRecord
       product = variant.product
 
       case product.inventory_level
-      when 'variant'
+      when "variant"
         variant.with_lock do
           previous_stock = variant.stock_quantity
           new_stock = previous_stock + item.quantity
@@ -218,7 +218,7 @@ class Order < ApplicationRecord
           )
         end
 
-      when 'product'
+      when "product"
         product.with_lock do
           previous_stock = product.product_stock_quantity || 0
           new_stock = previous_stock + item.quantity
@@ -229,12 +229,12 @@ class Order < ApplicationRecord
             previous_qty: previous_stock,
             new_qty: new_stock,
             reason: "Order ##{order_number} cancelled - stock restored",
-            audit_type: 'order_cancelled',
+            audit_type: "order_cancelled",
             order: self
           )
         end
 
-      when 'none'
+      when "none"
         next
       end
     end
@@ -250,24 +250,24 @@ class Order < ApplicationRecord
     # - Acai:      HAF-A-20251210-0001
     # - Wholesale: HAF-W-20251210-0001
     type_prefix = case order_type
-                  when 'acai' then 'A'
-                  when 'wholesale' then 'W'
-                  else 'R' # retail is default
-                  end
-    
-    date_str = Time.current.strftime('%Y%m%d')
+    when "acai" then "A"
+    when "wholesale" then "W"
+    else "R" # retail is default
+    end
+
+    date_str = Time.current.strftime("%Y%m%d")
     prefix = "HAF-#{type_prefix}-#{date_str}"
-    
+
     # Find the last order number with this prefix for today
-    last_order = Order.where('order_number LIKE ?', "#{prefix}-%").order(:order_number).last
-    
+    last_order = Order.where("order_number LIKE ?", "#{prefix}-%").order(:order_number).last
+
     if last_order
       # Extract the sequence number and increment
-      sequence = last_order.order_number.split('-').last.to_i + 1
+      sequence = last_order.order_number.split("-").last.to_i + 1
     else
       sequence = 1
     end
-    
+
     self.order_number = "#{prefix}-#{sequence.to_s.rjust(4, '0')}"
   end
 end

@@ -9,21 +9,21 @@ puts "=" * 50
 begin
   # Fetch all users from Clerk
   clerk_users = Clerk::User.all
-  
+
   puts "Found #{clerk_users.count} users in Clerk"
   puts ""
-  
+
   clerk_users.each do |clerk_user|
     email = clerk_user.email_addresses.first&.email_address
     next unless email
-    
+
     # Find or create user in database
     user = User.find_or_initialize_by(clerk_id: clerk_user.id)
     user.email = email
-    
+
     # Make shimizutechnology@gmail.com an admin
     user.role = 'admin' if email == 'shimizutechnology@gmail.com'
-    
+
     if user.new_record?
       user.save!
       puts "✅ Created user: #{email} (Admin: #{user.admin?})"
@@ -32,7 +32,7 @@ begin
       puts "♻️  Updated user: #{email} (Admin: #{user.admin?})"
     end
   end
-  
+
   puts ""
   puts "=" * 50
   puts "✅ Sync complete!"
@@ -41,9 +41,8 @@ begin
   User.all.each do |u|
     puts "  - #{u.email} (Admin: #{u.admin?})"
   end
-  
+
 rescue StandardError => e
   puts "❌ Error: #{e.message}"
   puts e.backtrace.first(5)
 end
-

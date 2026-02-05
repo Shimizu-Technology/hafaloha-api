@@ -28,7 +28,7 @@ class ShippingService
     raise ShippingError, "Total weight must be greater than 0" if total_weight_oz <= 0
 
     # Try EasyPost first if configured
-    if ENV['EASYPOST_API_KEY'].present?
+    if ENV["EASYPOST_API_KEY"].present?
       begin
         return calculate_easypost_rates(cart_items, destination, total_weight_oz)
       rescue StandardError => e
@@ -51,23 +51,23 @@ class ShippingService
     Rails.logger.info "   Weight: #{total_weight_oz}oz"
     Rails.logger.info "   From: #{ORIGIN_ADDRESS[:city]}, #{ORIGIN_ADDRESS[:state]} #{ORIGIN_ADDRESS[:zip]}"
     Rails.logger.info "   To: #{destination[:city]}, #{destination[:state]} #{destination[:zip]}"
-    
+
     # Create custom HTTP executor to work around macOS SSL/CRL issue
     # This uses Net::HTTP with SSL verification but without CRL checking
     custom_http_exec = lambda do |method, uri, headers, open_timeout, read_timeout, body = nil|
-      require 'net/http'
-      
+      require "net/http"
+
       # Log the API request for debugging
-      if body && method.to_s.downcase == 'post'
+      if body && method.to_s.downcase == "post"
         Rails.logger.debug "📤 EasyPost Request: #{uri}"
         Rails.logger.debug "   Body: #{body[0..500]}" # First 500 chars
       end
-      
+
       # Build request
       request = Net::HTTP.const_get(method.to_s.capitalize).new(uri)
       headers.each { |k, v| request[k] = v }
       request.body = body if body
-      
+
       # Execute request with custom SSL settings
       response = Net::HTTP.start(
         uri.host,
@@ -76,32 +76,32 @@ class ShippingService
         read_timeout: read_timeout,
         open_timeout: open_timeout,
         verify_mode: OpenSSL::SSL::VERIFY_PEER,
-        ca_file: ENV['SSL_CERT_FILE'],
+        ca_file: ENV["SSL_CERT_FILE"],
         # Custom verify callback that bypasses CRL checking
         verify_callback: proc { |preverify_ok, _cert_store| preverify_ok }
       ) do |http|
         http.request(request)
       end
-      
+
       # Log response for debugging
       if response.body
         Rails.logger.debug "📥 EasyPost Response: #{response.code}"
         Rails.logger.debug "   Body: #{response.body[0..500]}" # First 500 chars
       end
-      
+
       response
     end
-    
+
     # Create EasyPost client with custom HTTP executor
     client = EasyPost::Client.new(
-      api_key: ENV['EASYPOST_API_KEY'],
+      api_key: ENV["EASYPOST_API_KEY"],
       read_timeout: 60,
       open_timeout: 30,
       custom_client_exec: custom_http_exec
     )
-    
+
     Rails.logger.info "✅ EasyPost client created with custom HTTP executor (CRL checking disabled)"
-    
+
     # Create EasyPost shipment
     shipment = client.shipment.create(
       from_address: ORIGIN_ADDRESS,
@@ -127,7 +127,7 @@ class ShippingService
     Rails.logger.info "✅ EasyPost shipment created: #{shipment.id}"
     Rails.logger.info "   Origin verified: #{shipment.from_address&.city}, #{shipment.from_address&.state}"
     Rails.logger.info "   Found #{shipment.rates.count} rates"
-    
+
     # Log first rate for verification
     if shipment.rates.any?
       first_rate = shipment.rates.first
@@ -150,24 +150,24 @@ class ShippingService
   def self.calculate_fallback_rates(total_weight_oz, destination)
     settings = SiteSetting.instance
     rates_table = settings.fallback_shipping_rates
-    
+
     # Determine if international (non-US) or domestic
     country = destination[:country] || "US"
     is_international = country.upcase != "US"
-    
+
     rate_type = is_international ? "international" : "domestic"
     rate_tiers = rates_table[rate_type] || rates_table["domestic"]
-    
+
     # Find matching rate tier based on weight
     matching_tier = rate_tiers.find do |tier|
       max_weight = tier["max_weight_oz"]
       max_weight.nil? || total_weight_oz <= max_weight
     end
-    
+
     rate_cents = matching_tier ? matching_tier["rate_cents"] : 5000 # Default $50 if no match
-    
+
     # Return a single fallback rate in the same format as EasyPost rates
-    [{
+    [ {
       id: "fallback_standard",
       carrier: "Standard Shipping",
       service: is_international ? "International Mail" : "USPS Priority Mail",
@@ -177,18 +177,18 @@ class ShippingService
       delivery_date: nil,
       delivery_date_guaranteed: false,
       fallback: true # Mark as fallback rate
-    }]
+    } ]
   end
 
   # Validate a shipping address
   # @param address [Hash] - Address to validate
   # @return [Hash] - Validated/corrected address
   def self.validate_address(address)
-    raise ShippingError, "EasyPost API key not configured" unless ENV['EASYPOST_API_KEY'].present?
+    raise ShippingError, "EasyPost API key not configured" unless ENV["EASYPOST_API_KEY"].present?
 
     # Create EasyPost client
-    client = EasyPost::Client.new(api_key: ENV['EASYPOST_API_KEY'])
-    
+    client = EasyPost::Client.new(api_key: ENV["EASYPOST_API_KEY"])
+
     easypost_address = client.address.create(
       street1: address[:street1],
       street2: address[:street2],
@@ -196,7 +196,7 @@ class ShippingService
       state: address[:state],
       zip: address[:zip],
       country: address[:country] || "US",
-      verify: ["delivery"]
+      verify: [ "delivery" ]
     )
 
     # Return the verified address or original if verification fails
@@ -243,4 +243,3 @@ class ShippingService
       end
   end
 end
-

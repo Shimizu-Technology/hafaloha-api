@@ -10,7 +10,7 @@ module Api
         # GET /api/v1/admin/settings
         def show
           settings = SiteSetting.instance
-          
+
           render json: {
             settings: settings_json(settings)
           }
@@ -19,11 +19,11 @@ module Api
         # PUT /api/v1/admin/settings
         def update
           settings = SiteSetting.instance
-          
+
           if settings.update(settings_params)
             render json: {
               success: true,
-              message: 'Settings updated successfully',
+              message: "Settings updated successfully",
               settings: settings_json(settings)
             }
           else
@@ -75,4 +75,3 @@ module Api
     end
   end
 end
-

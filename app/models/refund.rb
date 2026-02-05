@@ -8,9 +8,9 @@ class Refund < ApplicationRecord
   validates :status, inclusion: { in: %w[pending succeeded failed] }
   validates :stripe_refund_id, uniqueness: true, allow_nil: true
 
-  scope :succeeded, -> { where(status: 'succeeded') }
-  scope :pending, -> { where(status: 'pending') }
-  scope :failed, -> { where(status: 'failed') }
+  scope :succeeded, -> { where(status: "succeeded") }
+  scope :pending, -> { where(status: "pending") }
+  scope :failed, -> { where(status: "failed") }
   scope :recent, -> { order(created_at: :desc) }
 
   def amount_dollars
@@ -18,14 +18,14 @@ class Refund < ApplicationRecord
   end
 
   def succeeded?
-    status == 'succeeded'
+    status == "succeeded"
   end
 
   def pending?
-    status == 'pending'
+    status == "pending"
   end
 
   def failed?
-    status == 'failed'
+    status == "failed"
   end
 end

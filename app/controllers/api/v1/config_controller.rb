@@ -14,7 +14,7 @@ module Api
           stripe_publishable_key: stripe_publishable_key(settings),
           features: {
             payments: true, # Always enabled (test mode or production mode)
-            shipping: ENV['EASYPOST_API_KEY'].present?
+            shipping: ENV["EASYPOST_API_KEY"].present?
           },
           store_info: {
             name: settings.store_name,
@@ -28,12 +28,11 @@ module Api
 
       def stripe_publishable_key(settings)
         if settings.test_mode?
-          ENV['STRIPE_PUBLISHABLE_KEY_TEST'] || ENV['STRIPE_PUBLISHABLE_KEY']
+          ENV["STRIPE_PUBLISHABLE_KEY_TEST"] || ENV["STRIPE_PUBLISHABLE_KEY"]
         else
-          ENV['STRIPE_PUBLISHABLE_KEY']
+          ENV["STRIPE_PUBLISHABLE_KEY"]
         end
       end
     end
   end
 end
-

@@ -82,12 +82,12 @@ Rails.application.configure do
     "hafaloha-api-ttx6.onrender.com",  # Explicit Render hostname
     /.+\.onrender\.com/                 # Allow any Render subdomain
   ]
-  
+
   # Add custom domain from environment variable (e.g., api.hafaloha.com)
   if ENV["API_HOST"].present?
     config.hosts << ENV["API_HOST"]
   end
-  
+
   # Skip DNS rebinding protection for the default health check endpoint.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

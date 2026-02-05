@@ -12,7 +12,7 @@ class AcaiCrustOption < ApplicationRecord
 
   # Instance methods
   def price
-    Money.new(price_cents, 'USD')
+    Money.new(price_cents, "USD")
   end
 
   def price=(amount)

@@ -4,7 +4,7 @@ class SendOrderConfirmationEmailJob < ApplicationJob
   def perform(order_id)
     order = Order.find(order_id)
     result = EmailService.send_order_confirmation(order)
-    
+
     if result[:success]
       Rails.logger.info "✅ Order confirmation email sent for Order ##{order.id}"
     else
@@ -17,4 +17,3 @@ class SendOrderConfirmationEmailJob < ApplicationJob
     raise # Re-raise to allow job retry
   end
 end
-

@@ -5,7 +5,7 @@ module Api
     module Admin
       module Acai
         class CrustOptionsController < Admin::BaseController
-          before_action :set_crust_option, only: [:show, :update, :destroy]
+          before_action :set_crust_option, only: [ :show, :update, :destroy ]
 
           # GET /api/v1/admin/acai/crust_options
           def index
@@ -35,7 +35,7 @@ module Api
               render json: {
                 success: true,
                 data: option_json(@crust_option),
-                message: 'Crust option created successfully'
+                message: "Crust option created successfully"
               }, status: :created
             else
               render json: {
@@ -51,7 +51,7 @@ module Api
               render json: {
                 success: true,
                 data: option_json(@crust_option),
-                message: 'Crust option updated successfully'
+                message: "Crust option updated successfully"
               }
             else
               render json: {
@@ -66,7 +66,7 @@ module Api
             @crust_option.destroy
             render json: {
               success: true,
-              message: 'Crust option deleted successfully'
+              message: "Crust option deleted successfully"
             }
           end
 

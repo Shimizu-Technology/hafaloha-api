@@ -10,10 +10,10 @@ class Fundraiser < ApplicationRecord
   validates :status, inclusion: { in: %w[draft active ended cancelled] }, allow_nil: false
 
   # Scopes
-  scope :active, -> { where(status: 'active').where('start_date <= ? AND (end_date >= ? OR end_date IS NULL)', Date.current, Date.current) }
+  scope :active, -> { where(status: "active").where("start_date <= ? AND (end_date >= ? OR end_date IS NULL)", Date.current, Date.current) }
   scope :published, -> { where(status: %w[active ended]) }
-  scope :upcoming, -> { where('start_date > ?', Date.current) }
-  scope :ended, -> { where('end_date < ?', Date.current).or(where(status: 'ended')) }
+  scope :upcoming, -> { where("start_date > ?", Date.current) }
+  scope :ended, -> { where("end_date < ?", Date.current).or(where(status: "ended")) }
   scope :recent, -> { order(start_date: :desc) }
   scope :by_status, ->(status) { where(status: status) if status.present? }
 
@@ -22,16 +22,16 @@ class Fundraiser < ApplicationRecord
 
   # Money handling
   def goal_amount
-    Money.new(goal_amount_cents || 0, 'USD')
+    Money.new(goal_amount_cents || 0, "USD")
   end
 
   def raised_amount
-    Money.new(raised_amount_cents || 0, 'USD')
+    Money.new(raised_amount_cents || 0, "USD")
   end
 
   # Status helpers
   def active?
-    status == 'active' && current?
+    status == "active" && current?
   end
 
   def current?
@@ -44,7 +44,7 @@ class Fundraiser < ApplicationRecord
   end
 
   def ended?
-    status == 'ended' || (end_date && end_date < Date.current)
+    status == "ended" || (end_date && end_date < Date.current)
   end
 
   def progress_percentage

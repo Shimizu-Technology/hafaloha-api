@@ -4,7 +4,7 @@ class FundraiserProduct < ApplicationRecord
 
   # Validations
   validates :price_cents, presence: true, numericality: { greater_than: 0 }
-  validates :product_id, uniqueness: { scope: :fundraiser_id, message: 'already added to this fundraiser' }
+  validates :product_id, uniqueness: { scope: :fundraiser_id, message: "already added to this fundraiser" }
   validates :min_quantity, numericality: { greater_than_or_equal_to: 1 }, allow_nil: true
   validates :max_quantity, numericality: { greater_than: 0 }, allow_nil: true
   validate :max_quantity_greater_than_min
@@ -18,7 +18,7 @@ class FundraiserProduct < ApplicationRecord
 
   # Money handling
   def price
-    Money.new(price_cents, 'USD')
+    Money.new(price_cents, "USD")
   end
 
   # Display name for admin
@@ -40,9 +40,9 @@ class FundraiserProduct < ApplicationRecord
 
   def max_quantity_greater_than_min
     return unless max_quantity.present? && min_quantity.present?
-    
+
     if max_quantity < min_quantity
-      errors.add(:max_quantity, 'must be greater than or equal to minimum quantity')
+      errors.add(:max_quantity, "must be greater than or equal to minimum quantity")
     end
   end
 end

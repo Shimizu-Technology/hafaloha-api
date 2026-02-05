@@ -4,8 +4,8 @@ module Api
   module V1
     class PaymentIntentsController < ApplicationController
       include Authenticatable
-      skip_before_action :authenticate_request, only: [:create]
-      before_action :authenticate_optional, only: [:create]
+      skip_before_action :authenticate_request, only: [ :create ]
+      before_action :authenticate_optional, only: [ :create ]
 
       # POST /api/v1/payment_intents
       # Creates a Stripe PaymentIntent for the current cart

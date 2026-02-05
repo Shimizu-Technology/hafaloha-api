@@ -33,7 +33,7 @@ module Sanitizable
       # Strip all HTML tags (including <script>, <iframe>, event handlers, etc.)
       clean = ActionController::Base.helpers.sanitize(value, tags: [], attributes: [])
       # Also collapse any leftover whitespace from stripped tags
-      clean = clean.gsub(/\s+/, ' ').strip
+      clean = clean.gsub(/\s+/, " ").strip
       send("#{field}=", clean)
     end
   end

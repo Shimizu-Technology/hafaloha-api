@@ -22,7 +22,7 @@ module Api
               render json: {
                 success: true,
                 data: settings_json(settings),
-                message: 'Acai settings updated successfully'
+                message: "Acai settings updated successfully"
               }
             else
               render json: {

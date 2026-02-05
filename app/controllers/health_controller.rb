@@ -1,20 +1,19 @@
 class HealthController < ApplicationController
   def show
     render json: {
-      status: 'ok',
+      status: "ok",
       timestamp: Time.current,
       environment: Rails.env,
       database: database_status,
-      version: '1.0.0'
+      version: "1.0.0"
     }
   end
 
   private
 
   def database_status
-    ActiveRecord::Base.connection.active? ? 'connected' : 'disconnected'
+    ActiveRecord::Base.connection.active? ? "connected" : "disconnected"
   rescue
-    'error'
+    "error"
   end
 end
-

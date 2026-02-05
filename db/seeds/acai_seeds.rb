@@ -50,7 +50,7 @@ end
 # Create pickup windows (based on their hours of operation)
 # Monday: Closed
 # Tue-Thur: 11 AM - 9 PM
-# Fri-Sat: 11 AM - 10 PM  
+# Fri-Sat: 11 AM - 10 PM
 # Sunday: 11 AM - 9 PM
 
 pickup_windows = [
@@ -59,7 +59,7 @@ pickup_windows = [
   { day_of_week: 3, start_time: '09:00', end_time: '16:00', active: true },  # Wednesday
   { day_of_week: 4, start_time: '09:00', end_time: '16:00', active: true },  # Thursday
   { day_of_week: 5, start_time: '09:00', end_time: '16:00', active: true },  # Friday
-  { day_of_week: 6, start_time: '09:00', end_time: '16:00', active: true },  # Saturday
+  { day_of_week: 6, start_time: '09:00', end_time: '16:00', active: true }  # Saturday
 ]
 
 pickup_windows.each do |attrs|

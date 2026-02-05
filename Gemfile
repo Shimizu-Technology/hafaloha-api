@@ -41,6 +41,7 @@ gem "stripe"                       # Payment processing
 gem "easypost"                     # Shipping rates & labels
 gem "resend"                       # Transactional emails
 gem "httparty"                     # HTTP requests (for image downloads, ClickSend)
+gem "rack-attack"                  # Rate limiting for API endpoints
 
 # Background jobs (using Solid Queue - already included in Rails 8)
 
@@ -56,7 +57,7 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
-  
+
   # Testing framework
   gem "rspec-rails"
   gem "factory_bot_rails"

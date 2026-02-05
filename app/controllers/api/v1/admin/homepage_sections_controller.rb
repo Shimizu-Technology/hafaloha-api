@@ -78,11 +78,11 @@ module Api
         def section_params
           key = if params.key?(:section)
                   :section
-                elsif params.key?(:homepage_section)
+          elsif params.key?(:homepage_section)
                   :homepage_section
-                else
+          else
                   :section
-                end
+          end
 
           params.require(key).permit(
             :section_type,
@@ -119,4 +119,3 @@ module Api
     end
   end
 end
-

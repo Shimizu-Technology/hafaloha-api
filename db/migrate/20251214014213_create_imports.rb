@@ -17,7 +17,7 @@ class CreateImports < ActiveRecord::Migration[8.1]
 
       t.timestamps
     end
-    
+
     add_index :imports, :status
     add_index :imports, :created_at
   end

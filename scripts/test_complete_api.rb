@@ -131,7 +131,7 @@ begin
   if !test_product.valid?
     puts "  ✓ Product validation working (name required)"
   end
-  
+
   # Test variant SKU uniqueness
   if ProductVariant.any?
     existing_sku = ProductVariant.first.sku
@@ -140,7 +140,7 @@ begin
       puts "  ✓ Variant validation working (unique SKU)"
     end
   end
-  
+
   puts "  ✓ All validations working"
 rescue => e
   puts "  ✗ Validation test error: #{e.message}"
@@ -176,4 +176,3 @@ puts "  → GET  http://localhost:3000/api/v1/admin/products"
 puts "  → POST http://localhost:3000/api/v1/admin/products"
 puts "  → POST http://localhost:3000/api/v1/admin/uploads"
 puts "=" * 80
-

@@ -28,19 +28,19 @@ class HomepageSection < ApplicationRecord
   # Class methods for easy access
   class << self
     def hero
-      active.by_type('hero').ordered.first
+      active.by_type("hero").ordered.first
     end
 
     def category_cards
-      active.by_type('category_card').ordered
+      active.by_type("category_card").ordered
     end
 
     def featured_products_section
-      active.by_type('featured_products').ordered.first
+      active.by_type("featured_products").ordered.first
     end
 
     def promo_banners
-      active.by_type('promo_banner').ordered
+      active.by_type("promo_banner").ordered
     end
 
     # Get all active sections grouped by type
@@ -60,4 +60,3 @@ class HomepageSection < ApplicationRecord
     save
   end
 end
-

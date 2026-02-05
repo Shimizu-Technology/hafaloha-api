@@ -14,7 +14,7 @@ module Api
           audits = audits.for_order(params[:order_id]) if params[:order_id].present?
           audits = audits.by_type(params[:audit_type]) if params[:audit_type].present?
           audits = audits.by_user(params[:user_id]) if params[:user_id].present?
-          
+
           # Date range filter
           if params[:start_date].present? && params[:end_date].present?
             start_date = Date.parse(params[:start_date]).beginning_of_day
@@ -24,7 +24,7 @@ module Api
 
           # Pagination
           page = (params[:page] || 1).to_i
-          per_page = [(params[:per_page] || 50).to_i, 100].min
+          per_page = [ (params[:per_page] || 50).to_i, 100 ].min
           total = audits.count
           audits = audits.offset((page - 1) * per_page).limit(per_page)
 
@@ -44,17 +44,17 @@ module Api
           audit = InventoryAudit.includes(:product_variant, :product, :order, :user).find(params[:id])
           render json: { audit: serialize_audit(audit, full: true) }
         rescue ActiveRecord::RecordNotFound
-          render json: { error: 'Audit record not found' }, status: :not_found
+          render json: { error: "Audit record not found" }, status: :not_found
         end
 
         # GET /api/v1/admin/products/:product_id/inventory_audits
         def for_product
           product = Product.find(params[:product_id])
-          
+
           # Get audits for the product itself or any of its variants
           variant_ids = product.product_variants.pluck(:id)
           audits = InventoryAudit.includes(:product_variant, :order, :user)
-                                 .where('product_id = ? OR product_variant_id IN (?)', product.id, variant_ids)
+                                 .where("product_id = ? OR product_variant_id IN (?)", product.id, variant_ids)
                                  .recent
                                  .limit(100)
 
@@ -67,7 +67,7 @@ module Api
             audits: audits.map { |a| serialize_audit(a) }
           }
         rescue ActiveRecord::RecordNotFound
-          render json: { error: 'Product not found' }, status: :not_found
+          render json: { error: "Product not found" }, status: :not_found
         end
 
         # GET /api/v1/admin/product_variants/:variant_id/inventory_audits
@@ -89,7 +89,7 @@ module Api
             audits: audits.map { |a| serialize_audit(a) }
           }
         rescue ActiveRecord::RecordNotFound
-          render json: { error: 'Variant not found' }, status: :not_found
+          render json: { error: "Variant not found" }, status: :not_found
         end
 
         # GET /api/v1/admin/orders/:order_id/inventory_audits
@@ -108,7 +108,7 @@ module Api
             audits: audits.map { |a| serialize_audit(a) }
           }
         rescue ActiveRecord::RecordNotFound
-          render json: { error: 'Order not found' }, status: :not_found
+          render json: { error: "Order not found" }, status: :not_found
         end
 
         # GET /api/v1/admin/inventory_audits/summary

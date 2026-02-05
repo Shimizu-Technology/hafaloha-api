@@ -5,14 +5,28 @@
 
 # Read more: https://github.com/cyu/rack-cors
 
+# Support multiple origins via comma-separated ALLOWED_ORIGINS env var.
+# Falls back to FRONTEND_URL for backward compatibility, then localhost for dev.
+#
+# Examples:
+#   ALLOWED_ORIGINS=https://hafaloha.com,https://www.hafaloha.com,https://hafaloha-v2.netlify.app
+#   FRONTEND_URL=https://hafaloha-v2.netlify.app  (legacy single-origin)
+#
+allowed_origins = if ENV["ALLOWED_ORIGINS"].present?
+                    ENV["ALLOWED_ORIGINS"].split(",").map(&:strip).reject(&:blank?)
+elsif ENV["FRONTEND_URL"].present?
+                    [ ENV["FRONTEND_URL"].strip ]
+else
+                    [ "http://localhost:5173" ]
+end
+
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    # Development: Allow localhost
-    origins ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-    
+    origins *allowed_origins
+
     resource "*",
       headers: :any,
-      methods: [:get, :post, :put, :patch, :delete, :options, :head],
+      methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
       credentials: true
   end
 end

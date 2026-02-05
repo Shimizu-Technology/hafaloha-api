@@ -64,10 +64,10 @@ puts "\n--- TEST 3: Background Job Queueing ---"
 begin
   SendOrderConfirmationEmailJob.perform_later(order.id)
   puts "✅ Order confirmation job queued"
-  
+
   SendAdminNotificationEmailJob.perform_later(order.id)
   puts "✅ Admin notification job queued"
-  
+
   puts "\n💡 Jobs queued! They will be processed by Solid Queue."
   puts "   In production, these run automatically."
   puts "   For dev, run: rails solid_queue:start"
@@ -85,4 +85,3 @@ puts "\n💡 Tips:"
 puts "   - Check spam folder if you don't see the emails"
 puts "   - Resend may require domain verification for production"
 puts "   - Test emails work immediately without verification"
-
