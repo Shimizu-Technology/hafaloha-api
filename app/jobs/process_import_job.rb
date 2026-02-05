@@ -314,12 +314,15 @@ class ProcessImportJob < ApplicationJob
     product_type = row["Type"]&.strip || ""
 
     # Gender → Mens/Womens collections
+    # Tokenize to avoid substring bugs ("female".include?("male") == true)
     # Unisex products go in BOTH (mirrors Shopify site behavior)
-    if gender.include?("male")
+    gender_tokens = gender.split(/[;,\/\s]+/).map(&:strip)
+    is_unisex = gender_tokens.include?("unisex")
+    if is_unisex || gender_tokens.include?("male")
       collection = find_or_create_collection("mens", "Mens", collection_cache, stats)
       link_product_to_collection(product, collection, existing_collection_ids)
     end
-    if gender.include?("female")
+    if is_unisex || gender_tokens.include?("female")
       collection = find_or_create_collection("womens", "Womens", collection_cache, stats)
       link_product_to_collection(product, collection, existing_collection_ids)
     end
