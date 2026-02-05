@@ -20,7 +20,8 @@ class ProcessImportJob < ApplicationJob
         collections_created: 0,
         products_skipped: 0,
         warnings: [],
-        created_products: [] # Track names of created products
+        created_products: [], # Track names of created products
+        variants_with_default_weight: [] # Track variants that used default 8oz weight
       }
 
       # Parse products CSV
@@ -203,7 +204,21 @@ class ProcessImportJob < ApplicationJob
         next
       end
 
-      variant = product.product_variants.create!(
+      # Handle weight - use Shopify grams or default to 8oz
+      variant_grams = row["Variant Grams"].to_f
+      weight_oz = nil
+      used_default_weight = false
+
+      if variant_grams > 0
+        weight_oz = (variant_grams / 28.3495).round(2)
+      else
+        # Default to 8oz if no weight provided
+        weight_oz = 8.0
+        used_default_weight = true
+        Rails.logger.info "⚖️  No weight for #{product.name} - #{row['Option1 Value']}, using default 8oz"
+      end
+
+      variant = product.product_variants.new(
         sku: sku,
         size: row["Option1 Value"],
         color: row["Option2 Value"],
@@ -213,16 +228,44 @@ class ProcessImportJob < ApplicationJob
         cost_cents: 0,
         stock_quantity: 0,
         available: true,
-        is_default: false
+        is_default: false,
+        weight_oz: weight_oz
       )
+      # Skip weight validation during import (we're setting defaults)
+      variant.skip_weight_validation = true
+      variant.save!
 
       variants_for_this_product += 1
       stats[:variants_created] += 1
       existing_variant_skus.add(sku)
 
+      # Track variants with default weight for flagging
+      if used_default_weight
+        stats[:variants_with_default_weight] ||= []
+        stats[:variants_with_default_weight] << { product: product.name, variant: row["Option1 Value"] || sku }
+      end
+
       if auto_generated
         skipped_for_missing_sku += 1 # Reuse counter for tracking auto-generated count
       end
+    end
+
+    # Flag products with variants that used default weight
+    variants_needing_attention = (stats[:variants_with_default_weight] || []).select { |v| v[:product] == product.name }
+    if variants_needing_attention.any?
+      variant_names = variants_needing_attention.map { |v| v[:variant] }.join(", ")
+      weight_note = "⚖️ Variant(s) imported without weight - using default 8oz: #{variant_names}"
+
+      # Append to existing import_notes or create new
+      existing_notes = product.import_notes.presence || ""
+      new_notes = [ existing_notes, weight_note ].reject(&:blank?).join("\n")
+
+      product.update!(
+        needs_attention: true,
+        import_notes: new_notes
+      )
+
+      stats[:warnings] << "#{product.name}: #{variants_needing_attention.count} variant(s) imported without weight — using default 8oz"
     end
 
     # Warn about auto-generated SKUs

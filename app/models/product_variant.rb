@@ -6,6 +6,15 @@ class ProductVariant < ApplicationRecord
   validates :sku, presence: true, uniqueness: true
   validates :price_cents, numericality: { greater_than_or_equal_to: 0 }
   validates :stock_quantity, numericality: { greater_than_or_equal_to: 0 }, if: -> { product&.inventory_level == "variant" }
+  # Weight is required for new records (allows nil for legacy data, but validates > 0 if present)
+  validates :weight_oz, numericality: { greater_than: 0, message: "must be greater than 0" }, if: -> { weight_oz.present? }
+  validates :weight_oz, presence: { message: "is required for shipping" }, on: :create, unless: -> { skip_weight_validation? }
+
+  # Allow skipping weight validation during imports (set via attr_accessor)
+  attr_accessor :skip_weight_validation
+  def skip_weight_validation?
+    @skip_weight_validation == true
+  end
 
   # Scopes
   scope :available, -> { where(available: true) }
