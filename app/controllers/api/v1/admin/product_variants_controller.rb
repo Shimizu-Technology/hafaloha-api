@@ -30,7 +30,22 @@ module Api
 
         # PATCH/PUT /api/v1/admin/products/:product_id/variants/:id
         def update
+          # Track stock changes for audit trail
+          previous_stock = @variant.stock_quantity
+          
           if @variant.update(variant_params)
+            # Create inventory audit if stock changed
+            new_stock = @variant.stock_quantity
+            if previous_stock != new_stock && @product.inventory_level == "variant"
+              InventoryAudit.record_manual_adjustment(
+                variant: @variant,
+                previous_qty: previous_stock,
+                new_qty: new_stock,
+                reason: "Manual stock update via admin",
+                user: current_user
+              )
+            end
+            
             render_success(serialize_variant(@variant), message: "Variant updated successfully")
           else
             render_error("Failed to update variant", errors: @variant.errors.full_messages)
@@ -50,15 +65,33 @@ module Api
         def adjust_stock
           @variant = @product.product_variants.find(params[:id])
           adjustment = params[:adjustment].to_i
+          reason = params[:reason] || "Manual stock adjustment"
 
+          if adjustment == 0
+            return render_error("Adjustment must be non-zero")
+          end
+
+          previous_stock = @variant.stock_quantity
+          
           if adjustment > 0
             @variant.increment_stock!(adjustment)
             message = "Added #{adjustment} units to stock"
-          elsif adjustment < 0
+            audit_type = "restock"
+          else
             @variant.decrement_stock!(adjustment.abs)
             message = "Removed #{adjustment.abs} units from stock"
-          else
-            return render_error("Adjustment must be non-zero")
+            audit_type = "manual_adjustment"
+          end
+
+          # Create inventory audit record
+          if @product.inventory_level == "variant"
+            InventoryAudit.record_manual_adjustment(
+              variant: @variant,
+              previous_qty: previous_stock,
+              new_qty: @variant.stock_quantity,
+              reason: reason,
+              user: current_user
+            )
           end
 
           render_success(serialize_variant(@variant), message: message)
