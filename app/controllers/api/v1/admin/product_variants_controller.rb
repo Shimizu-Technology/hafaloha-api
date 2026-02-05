@@ -32,7 +32,7 @@ module Api
         def update
           # Track stock changes for audit trail
           previous_stock = @variant.stock_quantity
-          
+
           if @variant.update(variant_params)
             # Create inventory audit if stock changed
             new_stock = @variant.stock_quantity
@@ -45,7 +45,7 @@ module Api
                 user: current_user
               )
             end
-            
+
             render_success(serialize_variant(@variant), message: "Variant updated successfully")
           else
             render_error("Failed to update variant", errors: @variant.errors.full_messages)
@@ -72,7 +72,7 @@ module Api
           end
 
           previous_stock = @variant.stock_quantity
-          
+
           if adjustment > 0
             @variant.increment_stock!(adjustment)
             message = "Added #{adjustment} units to stock"

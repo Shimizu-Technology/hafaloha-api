@@ -599,7 +599,7 @@ module Api
       # Restore inventory for specific order items (for partial refunds)
       def restore_inventory_for_items(order, item_ids, user = nil)
         items = order.order_items.where(id: item_ids).includes(product_variant: :product)
-        
+
         items.each do |item|
           variant = item.product_variant
           next unless variant

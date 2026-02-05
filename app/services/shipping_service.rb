@@ -15,6 +15,9 @@ class ShippingService
 
   class ShippingError < StandardError; end
 
+  # Default weight for items without weight (8oz = typical apparel)
+  DEFAULT_WEIGHT_OZ = 8.0
+
   # Calculate shipping rates for a cart/order
   # @param cart_items [Array<CartItem>] - Items to ship
   # @param destination [Hash] - Shipping address (street1, city, state, zip, country)
@@ -24,12 +27,11 @@ class ShippingService
     raise ShippingError, "Destination address required" if destination.blank?
 
     # Calculate total weight (use default 8oz per item if weight not set)
-    DEFAULT_WEIGHT_OZ = 8.0
     total_weight_oz = cart_items.sum do |item|
       weight = item.product_variant.weight_oz.presence || DEFAULT_WEIGHT_OZ
       weight * item.quantity
     end
-    
+
     # Ensure minimum weight for shipping calculation
     total_weight_oz = DEFAULT_WEIGHT_OZ if total_weight_oz <= 0
 
