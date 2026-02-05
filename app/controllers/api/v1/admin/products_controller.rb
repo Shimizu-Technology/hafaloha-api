@@ -196,6 +196,8 @@ module Api
             in_stock: product.in_stock?,
             actually_available: product.actually_available?,
             collections: product.collections.map { |c| { id: c.id, name: c.name, slug: c.slug } },
+            needs_attention: product.needs_attention,
+            import_notes: product.import_notes,
             created_at: product.created_at,
             updated_at: product.updated_at
           }

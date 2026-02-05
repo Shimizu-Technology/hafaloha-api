@@ -25,6 +25,7 @@ class Product < ApplicationRecord
   scope :active, -> { where(archived: false) }
   scope :archived, -> { where(archived: true) }
   scope :by_type, ->(type) { where(product_type: type) }
+  scope :needs_attention, -> { where(needs_attention: true) }
   scope :in_stock, -> {
     where(inventory_level: "none")
       .or(where(inventory_level: "product").where("product_stock_quantity > 0"))
