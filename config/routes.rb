@@ -63,20 +63,47 @@ Rails.application.routes.draw do
 
         # Fundraiser Management
         resources :fundraisers, except: [ :new, :edit ] do
+          member do
+            get :stats
+          end
+
           # Nested participants
           resources :participants, controller: "fundraisers/participants", except: [ :new, :edit ] do
             collection do
               post :bulk_create
+              post :bulk_import
             end
           end
 
-          # Nested fundraiser products
+          # Nested fundraiser products (standalone products for this fundraiser)
           resources :products, controller: "fundraisers/products", except: [ :new, :edit ] do
             collection do
               post :reorder
-              get :available
+            end
+
+            # Nested variants for fundraiser products
+            resources :variants, controller: "fundraisers/product_variants", except: [ :new, :edit ] do
+              member do
+                post :adjust_stock
+              end
+              collection do
+                post :generate
+              end
+            end
+
+            # Nested images for fundraiser products
+            resources :images, controller: "fundraisers/product_images", except: [ :new, :edit ] do
+              member do
+                post :set_primary
+              end
+              collection do
+                post :reorder
+              end
             end
           end
+
+          # Fundraiser orders (admin management)
+          resources :orders, controller: "fundraisers/orders", only: [ :index, :show, :update ]
         end
 
         # Variant Presets (for flexible variant system)
@@ -139,11 +166,19 @@ Rails.application.routes.draw do
       # Public routes (no authentication required)
       resources :products, only: [ :index, :show ]
       resources :collections, only: [ :index, :show ]
-      resources :fundraisers, only: [ :index, :show ] do
+
+      # Public fundraiser routes (by slug)
+      resources :fundraisers, only: [ :index, :show ], param: :slug do
+        scope module: :fundraisers do
+          resources :products, only: [ :index, :show ]
+          resource :cart, only: [ :show, :update, :destroy ]
+          resources :orders, only: [ :create, :show ]
+        end
         member do
-          post :create_order
+          post :create_order  # Legacy route for backward compatibility
         end
       end
+
       resources :homepage_sections, only: [ :index ]
 
       # Cart routes (authentication optional - supports guest carts)

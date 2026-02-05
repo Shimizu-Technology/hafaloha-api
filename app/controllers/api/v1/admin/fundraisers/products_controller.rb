@@ -8,31 +8,42 @@ module Api
 
           # GET /api/v1/admin/fundraisers/:fundraiser_id/products
           def index
-            @fundraiser_products = @fundraiser.fundraiser_products
-                                              .includes(product: [ :product_images, :product_variants ])
-                                              .by_position
+            @products = @fundraiser.fundraiser_products
+                                   .includes(:fundraiser_product_images, :fundraiser_product_variants)
+                                   .order(:position)
 
-            # Filter by active status
-            @fundraiser_products = @fundraiser_products.active if params[:active] == "true"
+            # Filter by published status
+            @products = @products.published if params[:published] == "true"
+
+            # Search by name
+            if params[:search].present?
+              @products = @products.where("name ILIKE ?", "%#{params[:search]}%")
+            end
+
+            # Pagination
+            page = params[:page]&.to_i || 1
+            per_page = [ params[:per_page]&.to_i || 20, 50 ].min
+            total = @products.count
+            @products = @products.limit(per_page).offset((page - 1) * per_page)
 
             render json: {
-              products: @fundraiser_products.map { |fp| serialize_fundraiser_product(fp) }
+              products: @products.map { |p| serialize_product(p) },
+              meta: {
+                page: page,
+                per_page: per_page,
+                total: total
+              }
             }
           end
 
           # GET /api/v1/admin/fundraisers/:fundraiser_id/products/:id
           def show
-            render json: { product: serialize_fundraiser_product_full(@fundraiser_product) }
+            render json: { product: serialize_product_full(@fundraiser_product) }
           end
 
           # POST /api/v1/admin/fundraisers/:fundraiser_id/products
           def create
-            @fundraiser_product = @fundraiser.fundraiser_products.new(fundraiser_product_params)
-
-            # Set default price from product if not provided
-            if @fundraiser_product.price_cents.nil? && @fundraiser_product.product
-              @fundraiser_product.price_cents = @fundraiser_product.product.base_price_cents
-            end
+            @fundraiser_product = @fundraiser.fundraiser_products.new(product_params)
 
             # Set default position
             if @fundraiser_product.position.nil?
@@ -41,7 +52,7 @@ module Api
             end
 
             if @fundraiser_product.save
-              render json: { product: serialize_fundraiser_product(@fundraiser_product) }, status: :created
+              render json: { product: serialize_product_full(@fundraiser_product) }, status: :created
             else
               render json: { errors: @fundraiser_product.errors.full_messages }, status: :unprocessable_entity
             end
@@ -49,8 +60,8 @@ module Api
 
           # PUT /api/v1/admin/fundraisers/:fundraiser_id/products/:id
           def update
-            if @fundraiser_product.update(fundraiser_product_params)
-              render json: { product: serialize_fundraiser_product(@fundraiser_product) }
+            if @fundraiser_product.update(product_params)
+              render json: { product: serialize_product_full(@fundraiser_product) }
             else
               render json: { errors: @fundraiser_product.errors.full_messages }, status: :unprocessable_entity
             end
@@ -58,8 +69,16 @@ module Api
 
           # DELETE /api/v1/admin/fundraisers/:fundraiser_id/products/:id
           def destroy
+            # Check for existing orders with this product's variants
+            if FundraiserOrderItem.joins(:fundraiser_product_variant)
+                                  .where(fundraiser_product_variants: { fundraiser_product_id: @fundraiser_product.id })
+                                  .exists?
+              render json: { error: "Cannot delete product with existing orders" }, status: :unprocessable_entity
+              return
+            end
+
             @fundraiser_product.destroy
-            render json: { message: "Product removed from fundraiser" }
+            render json: { message: "Product deleted successfully" }
           end
 
           # POST /api/v1/admin/fundraisers/:fundraiser_id/products/reorder
@@ -73,37 +92,6 @@ module Api
             render json: { message: "Products reordered successfully" }
           end
 
-          # GET /api/v1/admin/fundraisers/:fundraiser_id/products/available
-          # Returns products NOT yet added to this fundraiser
-          def available
-            existing_product_ids = @fundraiser.fundraiser_products.pluck(:product_id)
-
-            @products = Product.published.active
-                               .where.not(id: existing_product_ids)
-                               .includes(:product_images)
-                               .order(:name)
-
-            # Search
-            if params[:search].present?
-              @products = @products.where("name ILIKE ?", "%#{params[:search]}%")
-            end
-
-            # Pagination
-            page = params[:page]&.to_i || 1
-            per_page = [ params[:per_page]&.to_i || 20, 50 ].min
-            total = @products.count
-            @products = @products.limit(per_page).offset((page - 1) * per_page)
-
-            render json: {
-              products: @products.map { |p| serialize_available_product(p) },
-              meta: {
-                page: page,
-                per_page: per_page,
-                total: total
-              }
-            }
-          end
-
           private
 
           def set_fundraiser
@@ -114,64 +102,78 @@ module Api
 
           def set_fundraiser_product
             @fundraiser_product = @fundraiser.fundraiser_products
-                                             .includes(product: [ :product_images, :product_variants ])
+                                             .includes(:fundraiser_product_images, :fundraiser_product_variants)
                                              .find_by(id: params[:id])
-            render json: { error: "Product not found in fundraiser" }, status: :not_found unless @fundraiser_product
+            render json: { error: "Product not found" }, status: :not_found unless @fundraiser_product
           end
 
-          def fundraiser_product_params
-            params.require(:fundraiser_product).permit(
-              :product_id, :price_cents, :position, :active, :min_quantity, :max_quantity
+          def product_params
+            params.require(:product).permit(
+              :name, :slug, :description, :base_price_cents,
+              :inventory_level, :product_stock_quantity,
+              :featured, :published, :sku_prefix, :weight_oz, :position
             )
           end
 
-          def serialize_fundraiser_product(fp)
-            product = fp.product
-            {
-              id: fp.id,
-              product_id: product.id,
-              name: product.name,
-              slug: product.slug,
-              price_cents: fp.price_cents,
-              original_price_cents: product.base_price_cents,
-              position: fp.position,
-              active: fp.active,
-              min_quantity: fp.min_quantity,
-              max_quantity: fp.max_quantity,
-              image_url: product.primary_image&.signed_url,
-              variant_count: product.product_variants.count,
-              in_stock: product.in_stock?
-            }
-          end
-
-          def serialize_fundraiser_product_full(fp)
-            product = fp.product
-            serialize_fundraiser_product(fp).merge(
-              description: product.description,
-              variants: product.product_variants.map do |v|
-                {
-                  id: v.id,
-                  display_name: v.display_name,
-                  size: v.size,
-                  color: v.color,
-                  sku: v.sku,
-                  price_cents: v.price_cents,
-                  stock_quantity: v.stock_quantity,
-                  in_stock: v.in_stock?
-                }
-              end
-            )
-          end
-
-          def serialize_available_product(product)
+          def serialize_product(product)
             {
               id: product.id,
+              fundraiser_id: product.fundraiser_id,
               name: product.name,
               slug: product.slug,
               base_price_cents: product.base_price_cents,
-              image_url: product.primary_image&.signed_url,
-              product_type: product.product_type,
-              in_stock: product.in_stock?
+              inventory_level: product.inventory_level,
+              product_stock_quantity: product.product_stock_quantity,
+              featured: product.featured,
+              published: product.published,
+              position: product.position,
+              image_url: product.primary_image&.url,
+              variant_count: product.fundraiser_product_variants.count,
+              in_stock: product.in_stock?,
+              created_at: product.created_at
+            }
+          end
+
+          def serialize_product_full(product)
+            serialize_product(product).merge(
+              description: product.description,
+              sku_prefix: product.sku_prefix,
+              weight_oz: product.weight_oz,
+              variants: product.fundraiser_product_variants.map { |v| serialize_variant(v) },
+              images: product.fundraiser_product_images.order(:position).map { |i| serialize_image(i) },
+              updated_at: product.updated_at
+            )
+          end
+
+          def serialize_variant(variant)
+            {
+              id: variant.id,
+              sku: variant.sku,
+              variant_name: variant.variant_name,
+              variant_key: variant.variant_key,
+              size: variant.size,
+              color: variant.color,
+              material: variant.material,
+              options: variant.options,
+              price_cents: variant.price_cents,
+              compare_at_price_cents: variant.compare_at_price_cents,
+              stock_quantity: variant.stock_quantity,
+              available: variant.available,
+              is_default: variant.is_default,
+              weight_oz: variant.weight_oz,
+              stock_status: variant.stock_status,
+              in_stock: variant.in_stock?
+            }
+          end
+
+          def serialize_image(image)
+            {
+              id: image.id,
+              s3_key: image.s3_key,
+              url: image.url,
+              alt_text: image.alt_text,
+              position: image.position,
+              primary: image.primary
             }
           end
         end

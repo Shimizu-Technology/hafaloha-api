@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_021756) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_05_060000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -143,21 +143,108 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_021756) do
     t.index ["status"], name: "index_contact_submissions_on_status"
   end
 
-  create_table "fundraiser_products", force: :cascade do |t|
-    t.boolean "active", default: true, null: false
+  create_table "fundraiser_order_items", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.bigint "fundraiser_id", null: false
-    t.integer "max_quantity"
-    t.integer "min_quantity", default: 1
-    t.integer "position", default: 0
+    t.bigint "fundraiser_order_id", null: false
+    t.bigint "fundraiser_product_variant_id", null: false
     t.integer "price_cents", null: false
-    t.bigint "product_id", null: false
+    t.string "product_name"
+    t.integer "quantity", default: 1, null: false
     t.datetime "updated_at", null: false
-    t.index ["fundraiser_id", "active"], name: "index_fundraiser_products_on_fundraiser_id_and_active"
+    t.string "variant_name"
+    t.index ["fundraiser_order_id", "fundraiser_product_variant_id"], name: "idx_fundraiser_order_items_order_variant"
+    t.index ["fundraiser_order_id"], name: "index_fundraiser_order_items_on_fundraiser_order_id"
+    t.index ["fundraiser_product_variant_id"], name: "index_fundraiser_order_items_on_fundraiser_product_variant_id"
+  end
+
+  create_table "fundraiser_orders", force: :cascade do |t|
+    t.text "admin_notes"
+    t.datetime "created_at", null: false
+    t.string "customer_email"
+    t.string "customer_name"
+    t.string "customer_phone"
+    t.bigint "fundraiser_id", null: false
+    t.text "notes"
+    t.string "order_number", null: false
+    t.bigint "participant_id"
+    t.string "payment_status", default: "pending", null: false
+    t.string "shipping_address_line1"
+    t.string "shipping_address_line2"
+    t.integer "shipping_cents", default: 0, null: false
+    t.string "shipping_city"
+    t.string "shipping_country", default: "US"
+    t.string "shipping_state"
+    t.string "shipping_zip"
+    t.string "status", default: "pending", null: false
+    t.string "stripe_payment_intent_id"
+    t.integer "subtotal_cents", default: 0, null: false
+    t.integer "tax_cents", default: 0, null: false
+    t.integer "total_cents", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["fundraiser_id", "payment_status"], name: "index_fundraiser_orders_on_fundraiser_id_and_payment_status"
+    t.index ["fundraiser_id", "status"], name: "index_fundraiser_orders_on_fundraiser_id_and_status"
+    t.index ["fundraiser_id"], name: "index_fundraiser_orders_on_fundraiser_id"
+    t.index ["order_number"], name: "index_fundraiser_orders_on_order_number", unique: true
+    t.index ["participant_id", "payment_status"], name: "index_fundraiser_orders_on_participant_id_and_payment_status"
+    t.index ["participant_id"], name: "index_fundraiser_orders_on_participant_id"
+    t.index ["stripe_payment_intent_id"], name: "index_fundraiser_orders_on_stripe_payment_intent_id"
+  end
+
+  create_table "fundraiser_product_images", force: :cascade do |t|
+    t.string "alt_text"
+    t.datetime "created_at", null: false
+    t.bigint "fundraiser_product_id", null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "primary", default: false, null: false
+    t.string "s3_key", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fundraiser_product_id", "position"], name: "idx_on_fundraiser_product_id_position_821f73a80a"
+    t.index ["fundraiser_product_id", "primary"], name: "idx_on_fundraiser_product_id_primary_fc61fab104"
+    t.index ["fundraiser_product_id"], name: "index_fundraiser_product_images_on_fundraiser_product_id"
+  end
+
+  create_table "fundraiser_product_variants", force: :cascade do |t|
+    t.boolean "available", default: true, null: false
+    t.string "color"
+    t.integer "compare_at_price_cents"
+    t.datetime "created_at", null: false
+    t.bigint "fundraiser_product_id", null: false
+    t.boolean "is_default", default: false, null: false
+    t.integer "low_stock_threshold", default: 5
+    t.string "material"
+    t.jsonb "options", default: {}
+    t.integer "price_cents", null: false
+    t.string "size"
+    t.string "sku", null: false
+    t.integer "stock_quantity", default: 0
+    t.datetime "updated_at", null: false
+    t.string "variant_key"
+    t.string "variant_name"
+    t.decimal "weight_oz", precision: 8, scale: 2
+    t.index ["fundraiser_product_id", "available"], name: "idx_on_fundraiser_product_id_available_54f539defd"
+    t.index ["fundraiser_product_id"], name: "index_fundraiser_product_variants_on_fundraiser_product_id"
+    t.index ["sku"], name: "index_fundraiser_product_variants_on_sku", unique: true
+  end
+
+  create_table "fundraiser_products", force: :cascade do |t|
+    t.integer "base_price_cents"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "featured", default: false, null: false
+    t.bigint "fundraiser_id", null: false
+    t.string "inventory_level", default: "none", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0
+    t.integer "product_stock_quantity", default: 0
+    t.boolean "published", default: true, null: false
+    t.string "sku_prefix"
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "weight_oz", precision: 8, scale: 2
     t.index ["fundraiser_id", "position"], name: "index_fundraiser_products_on_fundraiser_id_and_position"
-    t.index ["fundraiser_id", "product_id"], name: "index_fundraiser_products_on_fundraiser_id_and_product_id", unique: true
+    t.index ["fundraiser_id", "published"], name: "index_fundraiser_products_on_fundraiser_id_and_published"
     t.index ["fundraiser_id"], name: "index_fundraiser_products_on_fundraiser_id"
-    t.index ["product_id"], name: "index_fundraiser_products_on_product_id"
+    t.index ["slug"], name: "index_fundraiser_products_on_slug", unique: true
   end
 
   create_table "fundraisers", force: :cascade do |t|
@@ -171,9 +258,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_021756) do
     t.integer "goal_amount_cents"
     t.string "image_url"
     t.string "name"
+    t.string "organization_name"
+    t.decimal "payout_percentage", precision: 5, scale: 2, default: "0.0"
     t.text "pickup_instructions"
     t.string "pickup_location"
     t.text "public_message"
+    t.boolean "published", default: false, null: false
     t.integer "raised_amount_cents"
     t.text "shipping_note"
     t.string "slug"
@@ -333,12 +423,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_021756) do
     t.datetime "created_at", null: false
     t.string "email"
     t.bigint "fundraiser_id", null: false
+    t.integer "goal_amount_cents"
     t.string "name"
     t.text "notes"
     t.string "participant_number"
     t.string "phone"
+    t.string "unique_code"
     t.datetime "updated_at", null: false
     t.index ["fundraiser_id"], name: "index_participants_on_fundraiser_id"
+    t.index ["unique_code"], name: "index_participants_on_unique_code", unique: true
   end
 
   create_table "product_collections", force: :cascade do |t|
@@ -484,8 +577,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_021756) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "cart_items", "product_variants"
   add_foreign_key "cart_items", "users"
+  add_foreign_key "fundraiser_order_items", "fundraiser_orders"
+  add_foreign_key "fundraiser_order_items", "fundraiser_product_variants"
+  add_foreign_key "fundraiser_orders", "fundraisers"
+  add_foreign_key "fundraiser_orders", "participants"
+  add_foreign_key "fundraiser_product_images", "fundraiser_products"
+  add_foreign_key "fundraiser_product_variants", "fundraiser_products"
   add_foreign_key "fundraiser_products", "fundraisers"
-  add_foreign_key "fundraiser_products", "products"
   add_foreign_key "imports", "users"
   add_foreign_key "inventory_audits", "orders"
   add_foreign_key "inventory_audits", "product_variants"

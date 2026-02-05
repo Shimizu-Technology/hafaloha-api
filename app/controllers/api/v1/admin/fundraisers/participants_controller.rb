@@ -10,11 +10,11 @@ module Api
           def index
             @participants = @fundraiser.participants
 
-            # Search by name or email
+            # Search by name, email, or unique code
             if params[:search].present?
               @participants = @participants.where(
-                "name ILIKE ? OR email ILIKE ?",
-                "%#{params[:search]}%", "%#{params[:search]}%"
+                "name ILIKE ? OR email ILIKE ? OR unique_code ILIKE ?",
+                "%#{params[:search]}%", "%#{params[:search]}%", "%#{params[:search]}%"
               )
             end
 
@@ -68,7 +68,7 @@ module Api
 
           # DELETE /api/v1/admin/fundraisers/:fundraiser_id/participants/:id
           def destroy
-            if @participant.orders.any?
+            if @participant.fundraiser_orders.any?
               render json: { error: "Cannot delete participant with existing orders" }, status: :unprocessable_entity
             else
               @participant.destroy
@@ -88,6 +88,7 @@ module Api
                 email: data[:email],
                 phone: data[:phone],
                 participant_number: data[:participant_number],
+                goal_amount_cents: data[:goal_amount_cents],
                 notes: data[:notes],
                 active: true
               )
@@ -110,6 +111,56 @@ module Api
             }
           end
 
+          # POST /api/v1/admin/fundraisers/:fundraiser_id/participants/bulk_import
+          # Import participants from CSV data
+          def bulk_import
+            csv_data = params[:csv_data]
+
+            unless csv_data.present?
+              render json: { error: "CSV data is required" }, status: :unprocessable_entity
+              return
+            end
+
+            require "csv"
+            created = []
+            errors = []
+
+            begin
+              rows = CSV.parse(csv_data, headers: true)
+
+              rows.each_with_index do |row, index|
+                participant = @fundraiser.participants.new(
+                  name: row["name"] || row["Name"],
+                  email: row["email"] || row["Email"],
+                  phone: row["phone"] || row["Phone"],
+                  participant_number: row["participant_number"] || row["Number"] || row["#"],
+                  goal_amount_cents: parse_goal_amount(row["goal"] || row["Goal"]),
+                  notes: row["notes"] || row["Notes"],
+                  active: true
+                )
+
+                if participant.save
+                  created << serialize_participant(participant)
+                else
+                  errors << { row: index + 2, name: row["name"] || row["Name"], errors: participant.errors.full_messages }
+                end
+              end
+            rescue CSV::MalformedCSVError => e
+              render json: { error: "Invalid CSV format: #{e.message}" }, status: :unprocessable_entity
+              return
+            end
+
+            render json: {
+              created: created,
+              errors: errors,
+              summary: {
+                total: created.length + errors.length,
+                created_count: created.length,
+                error_count: errors.length
+              }
+            }
+          end
+
           private
 
           def set_fundraiser
@@ -125,8 +176,15 @@ module Api
 
           def participant_params
             params.require(:participant).permit(
-              :name, :email, :phone, :participant_number, :notes, :active
+              :name, :email, :phone, :participant_number, :goal_amount_cents, :notes, :active
             )
+          end
+
+          def parse_goal_amount(value)
+            return nil if value.blank?
+            # Handle "$500" or "500.00" or "500"
+            clean_value = value.to_s.gsub(/[$,]/, "")
+            (clean_value.to_f * 100).to_i
           end
 
           def serialize_participant(participant)
@@ -135,11 +193,15 @@ module Api
               name: participant.name,
               email: participant.email,
               phone: participant.phone,
+              unique_code: participant.unique_code,
               participant_number: participant.participant_number,
+              goal_amount_cents: participant.goal_amount_cents,
               active: participant.active,
               display_name: participant.display_name,
               total_raised_cents: participant.total_raised_cents,
-              order_count: participant.orders.count,
+              progress_percentage: participant.progress_percentage,
+              order_count: participant.fundraiser_orders.count,
+              stats: participant.stats,
               created_at: participant.created_at
             }
           end
@@ -149,8 +211,21 @@ module Api
               notes: participant.notes,
               fundraiser_id: participant.fundraiser_id,
               fundraiser_name: participant.fundraiser.name,
+              recent_orders: participant.fundraiser_orders.recent.limit(5).map { |o| serialize_order_summary(o) },
               updated_at: participant.updated_at
             )
+          end
+
+          def serialize_order_summary(order)
+            {
+              id: order.id,
+              order_number: order.order_number,
+              status: order.status,
+              payment_status: order.payment_status,
+              total_cents: order.total_cents,
+              customer_name: order.customer_name,
+              created_at: order.created_at
+            }
           end
         end
       end
