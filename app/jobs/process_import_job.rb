@@ -130,28 +130,11 @@ class ProcessImportJob < ApplicationJob
         featured: false
       )
 
-      # Update collections
+      # Update collections (tags + metadata)
       archived_product.collections.clear
-      tags = first_row["Tags"]&.split(",")&.map(&:strip) || []
       existing_collection_ids = Set.new
-      tags.each do |tag_name|
-        next if tag_name.blank?
-        slug = tag_name.parameterize
-        collection = collection_cache[slug]
-        unless collection
-          collection = Collection.create!(
-            name: tag_name,
-            slug: slug,
-            published: true
-          )
-          collection_cache[slug] = collection
-          stats[:collections_created] += 1
-        end
-        unless existing_collection_ids.include?(collection.id)
-          archived_product.product_collections.create!(collection_id: collection.id)
-          existing_collection_ids.add(collection.id)
-        end
-      end
+      assign_tag_collections(first_row, archived_product, collection_cache, existing_collection_ids, stats)
+      assign_metadata_collections(first_row, archived_product, collection_cache, existing_collection_ids, stats)
 
       stats[:products_created] += 1
       stats[:created_products] << "#{archived_product.name} (unarchived)"
@@ -197,27 +180,10 @@ class ProcessImportJob < ApplicationJob
       stats[:products_created] += 1
       stats[:created_products] << product.name # Track created product name
 
-      # Create collections from tags
-      tags = first_row["Tags"]&.split(",")&.map(&:strip) || []
+      # Create collections from tags + metadata (gender, age, type)
       existing_collection_ids = Set.new
-      tags.each do |tag_name|
-        next if tag_name.blank?
-        slug = tag_name.parameterize
-        collection = collection_cache[slug]
-        unless collection
-          collection = Collection.create!(
-            name: tag_name,
-            slug: slug,
-            published: true
-          )
-          collection_cache[slug] = collection
-          stats[:collections_created] += 1
-        end
-        unless existing_collection_ids.include?(collection.id)
-          product.product_collections.create!(collection_id: collection.id)
-          existing_collection_ids.add(collection.id)
-        end
-      end
+      assign_tag_collections(first_row, product, collection_cache, existing_collection_ids, stats)
+      assign_metadata_collections(first_row, product, collection_cache, existing_collection_ids, stats)
     end
 
     # Process variants
@@ -330,6 +296,93 @@ class ProcessImportJob < ApplicationJob
     end
 
     product.name
+  end
+
+  # Assign collections based on CSV tags (existing behavior, extracted to method)
+  def assign_tag_collections(row, product, collection_cache, existing_collection_ids, stats)
+    tags = row["Tags"]&.split(",")&.map(&:strip) || []
+    tags.each do |tag_name|
+      next if tag_name.blank?
+      slug = tag_name.parameterize
+      collection = find_or_create_collection(slug, tag_name, collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+  end
+
+  # Assign collections based on Shopify metadata fields (gender, age group, product type)
+  def assign_metadata_collections(row, product, collection_cache, existing_collection_ids, stats)
+    gender = row["Target gender (product.metafields.shopify.target-gender)"]&.downcase&.strip || ""
+    age_group = row["Age group (product.metafields.shopify.age-group)"]&.downcase&.strip || ""
+    product_type = row["Type"]&.strip || ""
+
+    # Gender → Mens/Womens collections
+    # Unisex products go in BOTH (mirrors Shopify site behavior)
+    if gender.include?("male")
+      collection = find_or_create_collection("mens", "Mens", collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+    if gender.include?("female")
+      collection = find_or_create_collection("womens", "Womens", collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+
+    # Age group → Youth collection for kids
+    if age_group == "kids"
+      collection = find_or_create_collection("youth", "Youth", collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+
+    # Product Type → type-based collections
+    # Map types to collection names matching Shopify site structure
+    type_mapping = {
+      "T-Shirt"     => { slug: "t-shirts",    name: "T-Shirts" },
+      "Button Up"   => { slug: "button-ups",   name: "Button-Ups" },
+      "Polo"        => { slug: "polos",         name: "Polos" },
+      "Long Sleeve" => { slug: "long-sleeves",  name: "Long Sleeves" },
+      "Tank Top"    => { slug: "tank-tops",     name: "Tank Tops" },
+      "Shorts"      => { slug: "shorts",        name: "Shorts" },
+      "Snapback"    => { slug: "hats",          name: "Hats" },
+      "Baseball Cap" => { slug: "hats",         name: "Hats" },
+      "Sticker"     => { slug: "accessories",   name: "Accessories" },
+      "Jacket"      => { slug: "jackets",       name: "Jackets" }
+    }
+
+    if product_type.present? && type_mapping[product_type]
+      mapping = type_mapping[product_type]
+      collection = find_or_create_collection(mapping[:slug], mapping[:name], collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+
+    # Master "Apparel" collection for all clothing (not accessories/stickers)
+    non_apparel_types = %w[Sticker]
+    if product_type.present? && !non_apparel_types.include?(product_type)
+      collection = find_or_create_collection("apparel", "Apparel", collection_cache, stats)
+      link_product_to_collection(product, collection, existing_collection_ids)
+    end
+  end
+
+  # Find or create a collection by slug
+  def find_or_create_collection(slug, name, collection_cache, stats)
+    collection = collection_cache[slug]
+    unless collection
+      collection = Collection.create!(
+        name: name,
+        slug: slug,
+        published: true
+      )
+      collection_cache[slug] = collection
+      stats[:collections_created] += 1
+      Rails.logger.info "📁 Created collection: #{name} (#{slug})"
+    end
+    collection
+  end
+
+  # Link a product to a collection (idempotent)
+  def link_product_to_collection(product, collection, existing_collection_ids)
+    unless existing_collection_ids.include?(collection.id)
+      product.product_collections.create!(collection_id: collection.id)
+      existing_collection_ids.add(collection.id)
+    end
   end
 
   def skip_image?(url)
