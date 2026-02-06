@@ -30,8 +30,8 @@ class RestructureFundraiserSystem < ActiveRecord::Migration[8.1]
     end
 
     add_index :fundraiser_products, :slug, unique: true
-    add_index :fundraiser_products, [:fundraiser_id, :position]
-    add_index :fundraiser_products, [:fundraiser_id, :published]
+    add_index :fundraiser_products, [ :fundraiser_id, :position ]
+    add_index :fundraiser_products, [ :fundraiser_id, :published ]
 
     # ============================================
     # 3. Create fundraiser_product_variants
@@ -57,7 +57,7 @@ class RestructureFundraiserSystem < ActiveRecord::Migration[8.1]
     end
 
     add_index :fundraiser_product_variants, :sku, unique: true
-    add_index :fundraiser_product_variants, [:fundraiser_product_id, :available]
+    add_index :fundraiser_product_variants, [ :fundraiser_product_id, :available ]
 
     # ============================================
     # 4. Create fundraiser_product_images
@@ -72,8 +72,8 @@ class RestructureFundraiserSystem < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :fundraiser_product_images, [:fundraiser_product_id, :position]
-    add_index :fundraiser_product_images, [:fundraiser_product_id, :primary]
+    add_index :fundraiser_product_images, [ :fundraiser_product_id, :position ]
+    add_index :fundraiser_product_images, [ :fundraiser_product_id, :primary ]
 
     # ============================================
     # 5. Update Participants table - add unique_code
@@ -123,9 +123,9 @@ class RestructureFundraiserSystem < ActiveRecord::Migration[8.1]
     end
 
     add_index :fundraiser_orders, :order_number, unique: true
-    add_index :fundraiser_orders, [:fundraiser_id, :status]
-    add_index :fundraiser_orders, [:fundraiser_id, :payment_status]
-    add_index :fundraiser_orders, [:participant_id, :payment_status]
+    add_index :fundraiser_orders, [ :fundraiser_id, :status ]
+    add_index :fundraiser_orders, [ :fundraiser_id, :payment_status ]
+    add_index :fundraiser_orders, [ :participant_id, :payment_status ]
     add_index :fundraiser_orders, :stripe_payment_intent_id
 
     # ============================================
@@ -142,7 +142,7 @@ class RestructureFundraiserSystem < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :fundraiser_order_items, [:fundraiser_order_id, :fundraiser_product_variant_id],
+    add_index :fundraiser_order_items, [ :fundraiser_order_id, :fundraiser_product_variant_id ],
               name: "idx_fundraiser_order_items_order_variant"
   end
 end
