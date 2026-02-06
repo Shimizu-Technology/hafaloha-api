@@ -199,7 +199,6 @@ module Api
         render json: { error: "Failed to create order. Please try again." }, status: :internal_server_error
       end
 
-
       # GET /api/v1/orders/:id
       # Get order details
       def show
