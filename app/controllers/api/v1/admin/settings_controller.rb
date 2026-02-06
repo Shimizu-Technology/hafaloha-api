@@ -49,6 +49,7 @@ module Api
             store_name: settings.store_name,
             store_email: settings.store_email,
             store_phone: settings.store_phone,
+            placeholder_image_url: settings.placeholder_image_url,
             order_notification_emails: settings.order_notification_emails,
             shipping_origin_address: settings.shipping_origin_address
           }
@@ -65,6 +66,7 @@ module Api
             :store_name,
             :store_email,
             :store_phone,
+            :placeholder_image_url,
             order_notification_emails: [],
             shipping_origin_address: [
               :company, :street1, :street2, :city, :state, :zip, :country, :phone
