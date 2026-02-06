@@ -609,7 +609,6 @@ module Api
         end
       end
 
-
       # Verify a Stripe PaymentIntent was successful
       def verify_payment_intent(payment_intent_id, expected_amount_cents)
         settings = SiteSetting.instance
