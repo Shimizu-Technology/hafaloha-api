@@ -85,12 +85,18 @@ if HomepageSection.count == 0
     section_type: "hero",
     position: 0,
     active: true,
-    title: "Håfa Adai! 🌺",
+    title: "H\u00e5faloha",
     subtitle: "Chamorro pride. Island style. Premium quality merchandise.",
     button_text: "Shop Now",
     button_link: "/products",
-    background_image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=80",
-    settings: { "overlay_opacity" => 0.4, "text_alignment" => "center" }
+    background_image_url: "/images/hafaloha-hero-v2.jpg",
+    settings: {
+      "overlay_opacity" => 0.4,
+      "text_alignment" => "center",
+      "badge_text" => "Island Living Apparel",
+      "secondary_button_text" => "Browse Collections",
+      "secondary_button_link" => "/collections"
+    }
   )
 
   # Category Cards

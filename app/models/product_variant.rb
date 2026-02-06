@@ -42,7 +42,8 @@ class ProductVariant < ApplicationRecord
 
   # Primary display method - uses options first, falls back to legacy columns
   def display_name
-    variant_name.presence || options_display_name || legacy_display_name
+    raw = variant_name.presence || options_display_name || legacy_display_name
+    normalize_display_name(raw)
   end
 
   # Generate display name from flexible options JSONB field
@@ -53,7 +54,8 @@ class ProductVariant < ApplicationRecord
 
   # Fallback to legacy size/color columns (for backward compatibility)
   def legacy_display_name
-    [ size, color ].compact.join(" / ").presence
+    normalized_size = self.class.normalize_size_token(size)
+    [ normalized_size, color ].compact.join(" / ").presence
   end
 
   # Get options with indifferent access
@@ -126,8 +128,41 @@ class ProductVariant < ApplicationRecord
     if options.present?
       self.variant_name = options.values.compact.join(" / ")
     else
-      parts = [ size, color ].compact
+      normalized_size = self.class.normalize_size_token(size)
+      parts = [ normalized_size, color ].compact
       self.variant_name = parts.join(" / ") if parts.any?
+    end
+  end
+
+  def normalize_display_name(value)
+    return nil if value.blank?
+
+    value
+      .split("/")
+      .map { |part| self.class.normalize_size_token(part) }
+      .map { |part| part.to_s.strip }
+      .reject(&:blank?)
+      .join(" / ")
+      .presence
+  end
+
+  def self.normalize_size_token(value)
+    token = value.to_s.strip
+    return nil if token.blank?
+
+    return "One Size" if token.casecmp("default title").zero? || token.casecmp("default").zero?
+
+    size_patterns = [
+      /\A(?:xs|s|m|l|xl|xxl|xxxl)\z/i,
+      /\A\d+xl\z/i,
+      /\Ay(?:xs|s|m|l|xl)\z/i,
+      /\A\d+t\z/i
+    ]
+
+    if size_patterns.any? { |pattern| token.match?(pattern) }
+      token.upcase
+    else
+      token
     end
   end
 

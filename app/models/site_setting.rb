@@ -2,6 +2,7 @@ class SiteSetting < ApplicationRecord
   # Singleton pattern - only one record should ever exist
   validates :payment_processor, presence: true, inclusion: { in: %w[stripe paypal] }
   validates :payment_test_mode, inclusion: { in: [ true, false ] }
+  validate :validate_shipping_origin_address
 
   # Singleton accessor
   def self.instance
@@ -15,15 +16,23 @@ class SiteSetting < ApplicationRecord
       store_name: "Hafaloha",
       store_email: "info@hafaloha.com",
       store_phone: "671-777-1234",
+      placeholder_image_url: "/images/hafaloha-logo.png",
+      acai_gallery_image_a_url: "/images/acai-cake-set-a.webp",
+      acai_gallery_image_b_url: "/images/acai-cake-set-b.webp",
+      acai_gallery_heading: "Featured Sets",
+      acai_gallery_subtext: "Seasonal & special requests",
+      acai_gallery_show_image_a: true,
+      acai_gallery_show_image_b: true,
       order_notification_emails: [ "shimizutechnology@gmail.com" ],
       shipping_origin_address: {
         company: "Hafaloha",
-        street1: "221 LIRIO AVE",
-        city: "BARRIGADA",
+        street1: "215 Rojas Street",
+        street2: "Ixora Industrial Park, Unit 104",
+        city: "Tamuning",
         state: "GU",
         zip: "96913",
         country: "US",
-        phone: "671-777-1234"
+        phone: "671-989-3444"
       }
     )
   end
@@ -57,9 +66,30 @@ class SiteSetting < ApplicationRecord
     payment_processor == "paypal"
   end
 
+  def shipping_origin_complete?
+    missing = missing_shipping_origin_fields
+    missing.empty?
+  end
+
   private
 
   def prevent_destroy
     raise ActiveRecord::RecordNotDestroyed, "Cannot delete the site settings record"
+  end
+
+  def validate_shipping_origin_address
+    missing = missing_shipping_origin_fields
+    return if missing.empty?
+
+    errors.add(:shipping_origin_address, "is missing required fields: #{missing.join(', ')}")
+  end
+
+  def missing_shipping_origin_fields
+    address = shipping_origin_address || {}
+    required = %w[company street1 city state zip country phone]
+
+    required.select do |field|
+      address[field].blank? && address[field.to_sym].blank?
+    end
   end
 end

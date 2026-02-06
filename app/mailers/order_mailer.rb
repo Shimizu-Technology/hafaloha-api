@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class OrderMailer < ApplicationMailer
-  default from: "orders@hafaloha.com"
+  default from: -> { "Hafaloha <#{SiteSetting.instance.store_email || 'info@hafaloha.com'}>" }
 
   def refund_notification(order, refund)
     @order = order

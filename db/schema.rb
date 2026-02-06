@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_05_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_06_150529) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -531,11 +531,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_05_060000) do
   end
 
   create_table "site_settings", force: :cascade do |t|
+    t.string "acai_gallery_heading"
+    t.string "acai_gallery_image_a_url"
+    t.string "acai_gallery_image_b_url"
+    t.boolean "acai_gallery_show_image_a", default: true, null: false
+    t.boolean "acai_gallery_show_image_b", default: true, null: false
+    t.string "acai_gallery_subtext"
     t.datetime "created_at", null: false
     t.jsonb "fallback_shipping_rates", default: {"domestic"=>[{"rate_cents"=>800, "max_weight_oz"=>16}, {"rate_cents"=>1500, "max_weight_oz"=>48}, {"rate_cents"=>2000, "max_weight_oz"=>80}, {"rate_cents"=>3000, "max_weight_oz"=>160}, {"rate_cents"=>5000, "max_weight_oz"=>nil}], "international"=>[{"rate_cents"=>2500, "max_weight_oz"=>16}, {"rate_cents"=>4000, "max_weight_oz"=>48}, {"rate_cents"=>6000, "max_weight_oz"=>80}, {"rate_cents"=>9000, "max_weight_oz"=>160}, {"rate_cents"=>15000, "max_weight_oz"=>nil}]}, null: false
     t.text "order_notification_emails", default: [], array: true
     t.string "payment_processor", default: "stripe", null: false
     t.boolean "payment_test_mode", default: true, null: false
+    t.string "placeholder_image_url"
     t.boolean "send_acai_emails", default: false, null: false
     t.boolean "send_customer_emails", default: false, null: false
     t.boolean "send_retail_emails", default: false, null: false

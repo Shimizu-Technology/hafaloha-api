@@ -75,13 +75,11 @@ module Api
         end
 
         # Date range filter
-        if params[:start_date].present?
-          orders_query = orders_query.where("created_at >= ?", params[:start_date])
-        end
+        start_at = parse_datetime_param(params[:start_date])
+        end_at = parse_datetime_param(params[:end_date], end_of_day: true)
 
-        if params[:end_date].present?
-          orders_query = orders_query.where("created_at <= ?", params[:end_date])
-        end
+        orders_query = orders_query.where("created_at >= ?", start_at) if start_at
+        orders_query = orders_query.where("created_at <= ?", end_at) if end_at
 
         # Paginate
         total_count = orders_query.count
@@ -270,6 +268,18 @@ module Api
             session_item.update(user_id: current_user.id, session_id: nil)
           end
         end
+      end
+
+      def parse_datetime_param(value, end_of_day: false)
+        return nil if value.blank?
+
+        if value.match?(/^\d{4}-\d{2}-\d{2}$/)
+          date = Date.parse(value) rescue nil
+          return nil unless date
+          return end_of_day ? date.end_of_day : date.beginning_of_day
+        end
+
+        Time.zone.parse(value) rescue nil
       end
 
       def validate_cart_items(cart_items)
@@ -598,7 +608,6 @@ module Api
           "https://tools.usps.com/go/TrackConfirmAction?tLabels=#{tracking}"
         end
       end
-
 
       # Verify a Stripe PaymentIntent was successful
       def verify_payment_intent(payment_intent_id, expected_amount_cents)

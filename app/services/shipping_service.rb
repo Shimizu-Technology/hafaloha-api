@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class ShippingService
-  # Hafaloha's warehouse address (Guam)
+  # Hafaloha's warehouse address (Guam) - default fallback
   ORIGIN_ADDRESS = {
     company: "Hafaloha",
     street1: "215 Rojas Street",
@@ -55,9 +55,11 @@ class ShippingService
 
   # Calculate rates using EasyPost API
   def self.calculate_easypost_rates(cart_items, destination, total_weight_oz)
+    origin = origin_address
+
     Rails.logger.info "🚀 Attempting EasyPost API call..."
     Rails.logger.info "   Weight: #{total_weight_oz}oz"
-    Rails.logger.info "   From: #{ORIGIN_ADDRESS[:city]}, #{ORIGIN_ADDRESS[:state]} #{ORIGIN_ADDRESS[:zip]}"
+    Rails.logger.info "   From: #{origin[:city]}, #{origin[:state]} #{origin[:zip]}"
     Rails.logger.info "   To: #{destination[:city]}, #{destination[:state]} #{destination[:zip]}"
 
     # Create custom HTTP executor to work around macOS SSL/CRL issue
@@ -112,7 +114,7 @@ class ShippingService
 
     # Create EasyPost shipment
     shipment = client.shipment.create(
-      from_address: ORIGIN_ADDRESS,
+      from_address: origin,
       to_address: {
         street1: destination[:street1],
         street2: destination[:street2],
@@ -152,6 +154,13 @@ class ShippingService
     Rails.logger.error "   Message: #{e.message}"
     Rails.logger.error "   Backtrace: #{e.backtrace.first(5).join("\n   ")}"
     raise e
+  end
+
+  def self.origin_address
+    settings_address = SiteSetting.instance.shipping_origin_address || {}
+    normalized = deep_symbolize_keys(settings_address)
+
+    ORIGIN_ADDRESS.merge(normalized).compact
   end
 
   # Calculate rates using fallback table
@@ -249,5 +258,18 @@ class ShippingService
           est_delivery_days: rate.est_delivery_days
         }
       end
+  end
+
+  def self.deep_symbolize_keys(value)
+    case value
+    when Hash
+      value.each_with_object({}) do |(k, v), memo|
+        memo[k.to_sym] = deep_symbolize_keys(v)
+      end
+    when Array
+      value.map { |v| deep_symbolize_keys(v) }
+    else
+      value
+    end
   end
 end

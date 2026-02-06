@@ -218,18 +218,22 @@ class ProcessImportJob < ApplicationJob
         Rails.logger.info "⚖️  No weight for #{product.name} - #{row['Option1 Value']}, using default 8oz"
       end
 
+      options = build_variant_options(row)
+      legacy_attrs = legacy_variant_attrs(row, options)
+
       variant = product.product_variants.new(
         sku: sku,
-        size: row["Option1 Value"],
-        color: row["Option2 Value"],
-        material: row["Option3 Value"],
+        size: legacy_attrs[:size],
+        color: legacy_attrs[:color],
+        material: legacy_attrs[:material],
         price_cents: (row["Variant Price"].to_f * 100).to_i,
         compare_at_price_cents: row["Variant Compare At Price"].present? ? (row["Variant Compare At Price"].to_f * 100).to_i : nil,
         cost_cents: 0,
         stock_quantity: 0,
         available: true,
         is_default: false,
-        weight_oz: weight_oz
+        weight_oz: weight_oz,
+        options: options
       )
       # Skip weight validation during import (we're setting defaults)
       variant.skip_weight_validation = true
@@ -248,6 +252,12 @@ class ProcessImportJob < ApplicationJob
       if auto_generated
         skipped_for_missing_sku += 1 # Reuse counter for tracking auto-generated count
       end
+    end
+
+    # Remove auto-created default variant if we created real variants
+    if variants_for_this_product > 0 && product.product_variants.where(is_default: true).exists?
+      product.product_variants.where(is_default: true).destroy_all
+      Rails.logger.info "🗑️  Removed auto-created default variant (variants imported)"
     end
 
     # Flag products with variants that used default weight
@@ -348,6 +358,77 @@ class ProcessImportJob < ApplicationJob
       collection = find_or_create_collection(slug, tag_name, collection_cache, stats)
       link_product_to_collection(product, collection, existing_collection_ids)
     end
+  end
+
+  def build_variant_options(row)
+    options = {}
+    [
+      [ "Option1 Name", "Option1 Value" ],
+      [ "Option2 Name", "Option2 Value" ],
+      [ "Option3 Name", "Option3 Value" ]
+    ].each do |name_key, value_key|
+      name = row[name_key].to_s.strip
+      value = row[value_key].to_s.strip
+      next if name.blank? || value.blank?
+
+      normalized_name = normalize_option_name(name)
+      next if normalized_name.blank?
+
+      normalized_value = normalize_option_value(normalized_name, value)
+      next if normalized_value.blank?
+
+      options[normalized_name] = normalized_value
+    end
+
+    options
+  end
+
+  def legacy_variant_attrs(row, options)
+    size = options["Size"]
+    if size.blank? && default_title_option?(row)
+      size = "One Size"
+    end
+
+    {
+      size: size,
+      color: options["Color"],
+      material: options["Material"]
+    }
+  end
+
+  def normalize_option_name(name)
+    return nil if name.blank?
+
+    normalized = name.strip
+    return nil if normalized.casecmp("title").zero?
+
+    if normalized.match?(/size/i)
+      "Size"
+    elsif normalized.match?(/color|colour/i)
+      "Color"
+    elsif normalized.match?(/material/i)
+      "Material"
+    else
+      normalized
+    end
+  end
+
+  def normalize_option_value(option_name, value)
+    return nil if value.blank?
+
+    if option_name == "Size"
+      ProductVariant.normalize_size_token(value)
+    else
+      value
+    end
+  end
+
+  def default_title_option?(row)
+    name = row["Option1 Name"].to_s.strip
+    value = row["Option1 Value"].to_s.strip
+    return false unless name.casecmp("title").zero?
+
+    value.casecmp("default title").zero? || value.casecmp("default").zero?
   end
 
   # Assign collections based on Shopify metadata fields (gender, age group, product type)

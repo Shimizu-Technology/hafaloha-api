@@ -207,6 +207,14 @@ class EmailService
     "Hafaloha <#{email}>"
   end
 
+  def self.store_contact_email
+    SiteSetting.instance.store_email.presence || "info@hafaloha.com"
+  end
+
+  def self.store_contact_phone
+    SiteSetting.instance.store_phone.presence || "(671) 777-1234"
+  end
+
   # Generate customer confirmation HTML
   def self.order_confirmation_html(order)
     # Route to appropriate template based on order type
@@ -215,7 +223,9 @@ class EmailService
     end
 
     settings = SiteSetting.instance
-    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">⚙️ TEST ORDER</span>' : ""
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
+    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; margin-top: 12px;">⚙️ TEST ORDER</span>' : ""
 
     <<~HTML
       <!DOCTYPE html>
@@ -233,9 +243,9 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #C1191F 0%, #8B0000 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Hafaloha</h1>
-                    <p style="color: #FFD700; margin: 10px 0 0 0; font-size: 14px;">Chamorro Pride. Island Style.</p>
+                  <td style="background-color: #C1191F; background: #C1191F; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 6px rgba(0,0,0,0.25);">Hafaloha</h1>
+                    <p style="color: #FFE08A; margin: 8px 0 0 0; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.25);">Chamorro Pride. Island Style.</p>
                   </td>
                 </tr>
 
@@ -315,7 +325,7 @@ class EmailService
                 <tr>
                   <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Questions about your order?</p>
-                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | (671) 777-1234</p>
+                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:#{contact_email}" style="color: #C1191F; text-decoration: none;">#{contact_email}</a> | #{contact_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
                   </td>
                 </tr>
@@ -337,7 +347,9 @@ class EmailService
     end
 
     settings = SiteSetting.instance
-    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">⚙️ TEST ORDER</span>' : ""
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
+    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; margin-top: 12px;">⚙️ TEST ORDER</span>' : ""
 
     <<~HTML
       <!DOCTYPE html>
@@ -355,8 +367,8 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #1F2937 0%, #111827 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">🛍️ New Order Received</h1>
+                  <td style="background-color: #111827; background: #111827; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 800; line-height: 1.2; text-shadow: 0 2px 6px rgba(0,0,0,0.35);">🛍️ New Order Received</h1>
                     #{test_mode_badge}
                   </td>
                 </tr>
@@ -444,7 +456,9 @@ class EmailService
   def self.acai_admin_notification_html(order)
     settings = SiteSetting.instance
     acai_settings = AcaiSetting.instance
-    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">⚙️ TEST ORDER</span>' : ""
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
+    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; margin-top: 12px;">⚙️ TEST ORDER</span>' : ""
 
     pickup_date = order.acai_pickup_date&.strftime("%A, %B %d, %Y") || "TBD"
     pickup_time = order.acai_pickup_time || "TBD"
@@ -465,8 +479,8 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">🍰 New Acai Cake Order!</h1>
+                  <td style="background-color: #5B21B6; background: #5B21B6; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 800; line-height: 1.2; text-shadow: 0 2px 6px rgba(0,0,0,0.35);">🍰 New Acai Cake Order!</h1>
                     #{test_mode_badge}
                   </td>
                 </tr>
@@ -555,7 +569,9 @@ class EmailService
   def self.acai_order_confirmation_html(order)
     settings = SiteSetting.instance
     acai_settings = AcaiSetting.instance
-    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;">⚙️ TEST ORDER</span>' : ""
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
+    test_mode_badge = settings.test_mode? ? '<span style="background: #FEF3C7; color: #92400E; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block; margin-top: 12px;">⚙️ TEST ORDER</span>' : ""
 
     pickup_date = order.acai_pickup_date&.strftime("%A, %B %d, %Y") || "TBD"
     pickup_time = order.acai_pickup_time || "TBD"
@@ -576,9 +592,9 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #C1191F 0%, #8B0000 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">🍰 Hafaloha</h1>
-                    <p style="color: #FFD700; margin: 10px 0 0 0; font-size: 14px;">Acai Cake Order Confirmed!</p>
+                  <td style="background-color: #C1191F; background: #C1191F; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 6px rgba(0,0,0,0.25);">🍰 Hafaloha</h1>
+                    <p style="color: #FFE08A; margin: 8px 0 0 0; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.25);">Acai Cake Order Confirmed!</p>
                   </td>
                 </tr>
 
@@ -653,7 +669,7 @@ class EmailService
                 <tr>
                   <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Questions about your order?</p>
-                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | #{acai_settings.pickup_phone}</p>
+                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:#{contact_email}" style="color: #C1191F; text-decoration: none;">#{contact_email}</a> | #{contact_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
                   </td>
                 </tr>
@@ -690,6 +706,8 @@ class EmailService
 
   # Generate order shipped HTML
   def self.order_shipped_html(order)
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
     tracking_section = if order.tracking_number.present?
       <<~HTML
         <tr>
@@ -721,9 +739,9 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #C1191F 0%, #8B0000 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Hafaloha</h1>
-                    <p style="color: #FFD700; margin: 10px 0 0 0; font-size: 14px;">Chamorro Pride. Island Style.</p>
+                  <td style="background-color: #C1191F; background: #C1191F; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 6px rgba(0,0,0,0.25);">Hafaloha</h1>
+                    <p style="color: #FFE08A; margin: 8px 0 0 0; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.25);">Chamorro Pride. Island Style.</p>
                   </td>
                 </tr>
 
@@ -776,7 +794,7 @@ class EmailService
                 <tr>
                   <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Questions about your order?</p>
-                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | (671) 777-1234</p>
+                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:#{contact_email}" style="color: #C1191F; text-decoration: none;">#{contact_email}</a> | #{contact_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
                   </td>
                 </tr>
@@ -794,7 +812,9 @@ class EmailService
   def self.order_ready_html(order)
     settings = AcaiSetting.instance rescue nil
     pickup_location = settings&.pickup_location || "Contact us for pickup location"
-    pickup_phone = settings&.pickup_phone || "(671) 777-1234"
+    pickup_phone = settings&.pickup_phone || store_contact_phone
+    contact_email = store_contact_email
+    contact_phone = store_contact_phone
 
     pickup_time_section = if order.acai? && order.acai_pickup_date.present?
       pickup_date = order.acai_pickup_date.is_a?(String) ? Date.parse(order.acai_pickup_date) : order.acai_pickup_date
@@ -832,9 +852,9 @@ class EmailService
       #{'          '}
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #C1191F 0%, #8B0000 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Hafaloha</h1>
-                    <p style="color: #FFD700; margin: 10px 0 0 0; font-size: 14px;">Chamorro Pride. Island Style.</p>
+                  <td style="background-color: #C1191F; background: #C1191F; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 6px rgba(0,0,0,0.25);">Hafaloha</h1>
+                    <p style="color: #FFE08A; margin: 8px 0 0 0; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.25);">Chamorro Pride. Island Style.</p>
                   </td>
                 </tr>
 
@@ -897,7 +917,7 @@ class EmailService
                 <tr>
                   <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Thank you for your order!</p>
-                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | #{pickup_phone}</p>
+                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:#{contact_email}" style="color: #C1191F; text-decoration: none;">#{contact_email}</a> | #{contact_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
                   </td>
                 </tr>
@@ -945,8 +965,8 @@ class EmailService
 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #1F2937 0%, #111827 100%); padding: 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">📬 New Contact Form Message</h1>
+                  <td style="background-color: #111827; background: #111827; padding: 28px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; line-height: 1.2; text-shadow: 0 2px 6px rgba(0,0,0,0.35);">📬 New Contact Form Message</h1>
                   </td>
                 </tr>
 
@@ -1038,9 +1058,9 @@ class EmailService
 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #C1191F 0%, #8B0000 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Hafaloha</h1>
-                    <p style="color: #FFD700; margin: 10px 0 0 0; font-size: 14px;">Chamorro Pride. Island Style.</p>
+                  <td style="background-color: #C1191F; background: #C1191F; padding: 32px 24px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px; text-shadow: 0 2px 6px rgba(0,0,0,0.25);">Hafaloha</h1>
+                    <p style="color: #FFE08A; margin: 8px 0 0 0; font-size: 14px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.25);">Chamorro Pride. Island Style.</p>
                   </td>
                 </tr>
 
@@ -1085,7 +1105,7 @@ class EmailService
                 <tr>
                   <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
                     <p style="color: #6B7280; margin: 0 0 10px 0; font-size: 14px;">Questions about your order?</p>
-                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:info@hafaloha.com" style="color: #C1191F; text-decoration: none;">info@hafaloha.com</a> | (671) 777-1234</p>
+                    <p style="color: #C1191F; margin: 0; font-size: 14px;"><a href="mailto:#{contact_email}" style="color: #C1191F; text-decoration: none;">#{contact_email}</a> | #{contact_phone}</p>
                     <p style="color: #9CA3AF; margin: 20px 0 0 0; font-size: 12px;">&copy; #{Time.current.year} Hafaloha. All rights reserved.</p>
                   </td>
                 </tr>
